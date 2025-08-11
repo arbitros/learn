@@ -1,0 +1,21 @@
+.{
+    .name = .learn,
+    .version = "0.0.0",
+    .fingerprint = 0x680e9c5c78c37699, // Changing this has security and trust implications.
+    .minimum_zig_version = "0.14.1",
+    .dependencies = .{
+        .zigglgen = .{
+            .url = "git+https://github.com/castholm/zigglgen.git#f19acc6a78aa4429917341f9bacc73346db21b73",
+            .hash = "zigglgen-0.4.0-bmyqLQ3sLQCP7RyluOjtnnbkbL56JCNeIYDu6odBTQCv",
+        },
+        .zglfw = .{
+            .url = "git+https://github.com/IridescenceTech/zglfw.git#026eda6f4cb4e4bc9020c8849efb78f0b0368170",
+            .hash = "zglfw-0.1.0-BghZXYzSAAAC5BEWvJEfbYh0wghl9ePUIbB2wr8seqoE",
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+    },
+}

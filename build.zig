@@ -1,0 +1,55 @@
+const std = @import("std");
+const builtin = @import("builtin");
+
+pub fn build(b: *std.Build) void {
+    const target = b.standardTargetOptions(.{});
+    const optimize = b.standardOptimizeOption(.{});
+
+    const exe = b.addExecutable(.{
+        .name = "learn",
+        .root_source_file = b.path("src/main.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
+    const glfw_mod = b.addModule("glfw", .{
+        .root_source_file = b.path("src/glfw.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+
+    const gl_bindings = @import("zigglgen").generateBindingsModule(b, .{
+        .api = .gl,
+        .version = .@"4.1",
+        .profile = .core,
+        .extensions = &.{ .ARB_clip_control, .NV_scissor_exclusive },
+    });
+
+    if (builtin.os.tag == .windows) {
+        glfw_mod.addLibraryPath(b.path("glfw/lib-vc2022"));
+        glfw_mod.addIncludePath(b.path("glfw/include"));
+        glfw_mod.linkSystemLibrary("glfw3", .{});
+    }
+
+    exe.root_module.addImport("glfw", glfw_mod);
+    exe.root_module.addImport("gl", gl_bindings);
+
+    b.installArtifact(exe);
+
+    const exe_mod = b.createModule(.{
+        .target = target,
+    });
+
+    exe_mod.addImport("gl", gl_bindings);
+
+    const run_cmd = b.addRunArtifact(exe);
+    run_cmd.step.dependOn(b.getInstallStep());
+
+    if (b.args) |args| {
+        run_cmd.addArgs(args);
+    }
+
+    const run_step = b.step("run", "Run the app");
+    run_step.dependOn(&run_cmd.step);
+}
