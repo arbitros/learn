@@ -1,23 +1,8 @@
 const glfw = @import("glfw");
 const std = @import("std");
 const gl = @import("gl");
-
-const vertexShaderSource =
-    \\ #version 410 core
-    \\ layout (location = 0) in vec3 aPos;
-    \\ void main()
-    \\ {
-    \\   gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);
-    \\ }
-;
-
-const fragmentShaderSource =
-    \\ #version 410 core
-    \\ out vec4 FragColor;
-    \\ void main() {
-    \\  FragColor = vec4(0.9, 0.2, 0.0, 1.0);   
-    \\ }
-;
+const zlm = @import("zig_matrix");
+const shader = @import("shader.zig");
 
 const WindowSize = struct {
     pub const width: u32 = 800;
@@ -52,59 +37,16 @@ pub fn main() !void {
     defer gl.makeProcTableCurrent(null);
     glfw.makeContextCurrent(window);
 
-    // Create vertex shader
-    var vertexShader: c_uint = undefined;
-    vertexShader = gl.CreateShader(gl.VERTEX_SHADER);
-    defer gl.DeleteShader(vertexShader);
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
 
-    // Attach the shader source to the vertex shader object and compile it
-    gl.ShaderSource(vertexShader, 1, @ptrCast(&vertexShaderSource), null);
-    gl.CompileShader(vertexShader);
-
-    // Check if vertex shader was compiled successfully
-
-    var success: c_int = undefined;
-    var infoLog: [512]u8 = [_]u8{0} ** 512;
-
-    gl.GetShaderiv(vertexShader, gl.COMPILE_STATUS, &success);
-
-    if (success == 0) {
-        gl.GetShaderInfoLog(vertexShader, 512, null, &infoLog);
-        std.log.err("{s}", .{infoLog});
-    }
-
-    // Fragment shader
-    var fragmentShader: c_uint = undefined;
-    fragmentShader = gl.CreateShader(gl.FRAGMENT_SHADER);
-    defer gl.DeleteShader(fragmentShader);
-
-    gl.ShaderSource(fragmentShader, 1, @ptrCast(&fragmentShaderSource), null);
-    gl.CompileShader(fragmentShader);
-
-    gl.GetShaderiv(fragmentShader, gl.COMPILE_STATUS, &success);
-
-    if (success == 0) {
-        gl.GetShaderInfoLog(fragmentShader, 512, null, &infoLog);
-        std.log.err("{s}", .{infoLog});
-    }
-
-    // create a program object
-    var shaderProgram: c_uint = undefined;
-    shaderProgram = gl.CreateProgram();
-    std.debug.print("{any}", .{shaderProgram});
-    defer gl.DeleteProgram(shaderProgram);
-
-    // attach compiled shader objects to the program object and link
-    gl.AttachShader(shaderProgram, vertexShader);
-    gl.AttachShader(shaderProgram, fragmentShader);
-    gl.LinkProgram(shaderProgram);
-
-    // check if shader linking was successfull
-    gl.GetProgramiv(shaderProgram, gl.LINK_STATUS, &success);
-    if (success == 0) {
-        gl.GetProgramInfoLog(shaderProgram, 512, null, &infoLog);
-        std.log.err("{s}", .{infoLog});
-    }
+    const shaderProgram = try shader.ShaderProgram().init(
+        allocator,
+        "src/shaders/vshader.glsl",
+        "src/shaders/fshader.glsl",
+    );
+    defer shaderProgram.deinit();
 
     // set up vertex data (and buffer(s)) and configure vertex attributes
     // ------------------------------------------------------------------
@@ -128,11 +70,6 @@ pub fn main() !void {
     gl.VertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, 3 * @sizeOf(f32), 0);
     gl.EnableVertexAttribArray(0);
 
-    // note that this is allowed, the call to glVertexAttribPointer registered VBO as the vertex attribute's bound vertex buffer object so afterwards we can safely unbind
-
-    // You can unbind the VAO afterwards so other VAO calls won't accidentally modify this VAO, but this rarely happens. Modifying other
-    // VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
-
     glfw.swapInterval(1); //V-sync
 
     while (!glfw.windowShouldClose(window)) {
@@ -142,7 +79,7 @@ pub fn main() !void {
         gl.Clear(gl.COLOR_BUFFER_BIT);
 
         // Activate shaderProgram
-        gl.UseProgram(shaderProgram);
+        gl.UseProgram(shaderProgram.shaderProgram);
         gl.BindVertexArray(VAO); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
         gl.DrawArrays(gl.TRIANGLES, 0, 3);
 

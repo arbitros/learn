@@ -26,25 +26,27 @@ pub fn build(b: *std.Build) void {
         .extensions = &.{ .ARB_clip_control, .NV_scissor_exclusive },
     });
 
+    const zig_matrix_dep = b.dependency("zig_matrix", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
     if (builtin.os.tag == .windows) {
         glfw_mod.addLibraryPath(b.path("glfw/lib-vc2022"));
         glfw_mod.addIncludePath(b.path("glfw/include"));
         glfw_mod.linkSystemLibrary("glfw3", .{});
     }
 
+    exe.root_module.addImport("zig_matrix", zig_matrix_dep.module("zig_matrix"));
     exe.root_module.addImport("glfw", glfw_mod);
     exe.root_module.addImport("gl", gl_bindings);
 
     b.installArtifact(exe);
 
-    const exe_mod = b.createModule(.{
-        .target = target,
-    });
-
-    exe_mod.addImport("gl", gl_bindings);
-
     const run_cmd = b.addRunArtifact(exe);
     run_cmd.step.dependOn(b.getInstallStep());
+
+    run_cmd.cwd = b.path(".");
 
     if (b.args) |args| {
         run_cmd.addArgs(args);

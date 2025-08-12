@@ -12,6 +12,10 @@
             .url = "git+https://github.com/IridescenceTech/zglfw.git#026eda6f4cb4e4bc9020c8849efb78f0b0368170",
             .hash = "zglfw-0.1.0-BghZXYzSAAAC5BEWvJEfbYh0wghl9ePUIbB2wr8seqoE",
         },
+        .zig_matrix = .{
+            .url = "https://github.com/AshishBhattarai/zig-matrix/archive/d11ee2a438b7655edd8bc456f1fac2991310441e.tar.gz",
+            .hash = "zig_matrix-1.0.1-Fvun532UAQBAkhtGDwqLa7EtJdYKHx-W8_PVf9JIHQle",
+        },
     },
     .paths = .{
         "build.zig",

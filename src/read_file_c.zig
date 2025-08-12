@@ -19,7 +19,7 @@ test {
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
-    const sometext = try readFile(allocator, "sometext.txt");
+    const sometext = try readFile(allocator, "fshader.glsl");
     defer allocator.free(sometext);
 
     std.debug.print("{any}\n", .{sometext});
