@@ -3,6 +3,8 @@ const std = @import("std");
 const gl = @import("gl");
 const zlm = @import("zig_matrix");
 const shader = @import("shader.zig");
+const camera = @import("camera.zig");
+const math = std.math;
 
 const WindowSize = struct {
     pub const width: u32 = 800;
@@ -50,9 +52,30 @@ pub fn main() !void {
 
     // set up vertex data (and buffer(s)) and configure vertex attributes
     // ------------------------------------------------------------------
-    const vertices = [9]f32{ -0.5, -0.5, 0.0, 0.5, -0.5, 0.0, 0.0, 0.5, 0.0 };
+    const vertices = [5 * 8]f32{
+        // Position        // Texture Coords
+        -0.5, -0.5, -0.5, 0.0, 0.0, // 0: back-bottom-left
+        0.5, -0.5, -0.5, 1.0, 0.0, // 1: back-bottom-right
+        0.5, 0.5, -0.5, 1.0, 1.0, // 2: back-top-right
+        -0.5, 0.5, -0.5, 0.0, 1.0, // 3: back-top-left
+        -0.5, -0.5, 0.5, 0.0, 0.0, // 4: front-bottom-left
+        0.5, -0.5, 0.5, 1.0, 0.0, // 5: front-bottom-right
+        0.5, 0.5, 0.5, 1.0, 1.0, // 6: front-top-right
+        -0.5, 0.5, 0.5, 0.0, 1.0, // 7: front-top-left
+    };
+
+    const indices = [6 * 6]u32{
+        0, 1, 2, 2, 3, 0, // Back face (facing -Z)
+        4, 5, 6, 6, 7, 4, // Front face (facing +Z)
+        7, 3, 0, 0, 4, 7, // Left face (facing -X)
+        5, 1, 2, 2, 6, 5, // Right face (facing +X)
+        0, 1, 5, 5, 4, 0, // Bottom face (facing -Y)
+        3, 2, 6, 6, 7, 3, // Top face (facing +Y)
+    };
+
     var VBO: c_uint = undefined;
     var VAO: c_uint = undefined;
+    var EBO: c_uint = undefined;
 
     gl.GenVertexArrays(1, @ptrCast(&VAO));
     defer gl.DeleteVertexArrays(1, @ptrCast(&VAO));
@@ -60,14 +83,20 @@ pub fn main() !void {
     gl.GenBuffers(1, @ptrCast(&VBO));
     defer gl.DeleteBuffers(1, @ptrCast(&VBO));
 
+    gl.GenBuffers(1, @ptrCast(&EBO));
+    defer gl.DeleteBuffers(1, @ptrCast(&EBO));
+
     // bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
     gl.BindVertexArray(VAO);
+
     gl.BindBuffer(gl.ARRAY_BUFFER, VBO);
-    // Fill our buffer with the vertex data
     gl.BufferData(gl.ARRAY_BUFFER, @sizeOf(f32) * vertices.len, &vertices, gl.STATIC_DRAW);
 
+    gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, EBO);
+    gl.BufferData(gl.ELEMENT_ARRAY_BUFFER, @sizeOf(u32) * indices.len, &indices, gl.STATIC_DRAW);
+
     // Specify and link our vertext attribute description
-    gl.VertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, 3 * @sizeOf(f32), 0);
+    gl.VertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, 5 * @sizeOf(f32), 0);
     gl.EnableVertexAttribArray(0);
 
     glfw.swapInterval(1); //V-sync
@@ -81,7 +110,7 @@ pub fn main() !void {
         // Activate shaderProgram
         gl.UseProgram(shaderProgram.shaderProgram);
         gl.BindVertexArray(VAO); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
-        gl.DrawArrays(gl.TRIANGLES, 0, 3);
+        gl.DrawElements(gl.TRIANGLES, 6, gl.UNSIGNED_INT, 0);
 
         glfw.swapBuffers(window);
         glfw.pollEvents();
