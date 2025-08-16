@@ -1,6 +1,8 @@
 const gl = @import("gl");
 const std = @import("std");
 const file = @import("read_file_c.zig");
+const zlm = @import("zig_matrix");
+const zlm_util = @import("matrix_util.zig");
 
 pub fn ShaderProgram() type {
     return struct {
@@ -36,6 +38,13 @@ pub fn ShaderProgram() type {
             gl.DeleteProgram(self.shaderProgram);
             gl.DeleteShader(self.vShader);
             gl.DeleteShader(self.fShader);
+        }
+
+        pub fn setMat4(self: Self, mat: zlm.Mat4x4, uniformName: [*:0]const u8) void {
+            const matArr = zlm_util.getMat4Ptr(mat);
+            const uniformLoc = gl.GetUniformLocation(self.shaderProgram, uniformName);
+            std.debug.print("mat: {any}\nLoc: {d}\nLocstr:", .{ matArr, uniformLoc });
+            gl.UniformMatrix4fv(uniformLoc, 1, gl.FALSE, &matArr);
         }
 
         fn initShader(allocator: std.mem.Allocator, shaderType: comptime_int, shaderPath: []const u8) !c_uint {

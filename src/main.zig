@@ -6,10 +6,15 @@ const shader = @import("shader.zig");
 const camera = @import("camera.zig");
 const math = std.math;
 
+const Vec3 = zlm.Vec3;
+const Mat4 = zlm.Mat4x4;
+
 const WindowSize = struct {
     pub const width: u32 = 800;
     pub const height: u32 = 600;
 };
+
+var camera1 = camera.Camera().init(45, Vec3.init(0, 0, 3), Vec3.init(0, 0, -5));
 
 pub fn main() !void {
     var major: i32 = 0;
@@ -23,7 +28,7 @@ pub fn main() !void {
     defer glfw.terminate();
     std.debug.print("GLFW Init Succeeded.\n", .{});
 
-    const window: ?*glfw.Window = try glfw.createWindow(800, 640, "Hello World", null, null);
+    const window: ?*glfw.Window = try glfw.createWindow(WindowSize.width, WindowSize.height, "Hello World", null, null);
     defer glfw.destroyWindow(window);
 
     glfw.makeContextCurrent(window);
@@ -38,6 +43,8 @@ pub fn main() !void {
     gl.makeProcTableCurrent(&procs);
     defer gl.makeProcTableCurrent(null);
     glfw.makeContextCurrent(window);
+
+    _ = glfw.setCursorPosCallback(window, @ptrCast(&mouseCallback));
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
@@ -101,6 +108,20 @@ pub fn main() !void {
 
     glfw.swapInterval(1); //V-sync
 
+    const modelMat = Mat4.identity().rotate(45, Vec3.init(0.5, 0.5, 0));
+    var viewMat = camera1.viewMatrix;
+    const projMat = Mat4.init(
+        zlm.Vec4.init(1.207, 0, 0, 0),
+        zlm.Vec4.init(0, 2.145, 0, 0),
+        zlm.Vec4.init(0, 0, -1, -0.02),
+        zlm.Vec4.init(0, 0, -1, 0),
+    );
+
+    gl.UseProgram(shaderProgram.shaderProgram);
+    shaderProgram.setMat4(modelMat, "model");
+    shaderProgram.setMat4(viewMat, "view");
+    shaderProgram.setMat4(projMat, "projection");
+
     while (!glfw.windowShouldClose(window)) {
         processInput(window);
 
@@ -110,6 +131,9 @@ pub fn main() !void {
         // Activate shaderProgram
         gl.UseProgram(shaderProgram.shaderProgram);
         gl.BindVertexArray(VAO); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
+
+        viewMat = camera1.viewMatrix;
+        shaderProgram.setMat4(viewMat, "view");
         gl.DrawElements(gl.TRIANGLES, 6, gl.UNSIGNED_INT, 0);
 
         glfw.swapBuffers(window);
@@ -131,4 +155,26 @@ fn processInput(window: ?*glfw.Window) void {
     if (glfw.getKey(window, glfw.KeyEscape) == glfw.Press) {
         glfw.setWindowShouldClose(window, true);
     }
+}
+
+var lastX: f64 = @as(f64, @floatFromInt(WindowSize.width / 2));
+var lastY: f64 = @as(f64, @floatFromInt(WindowSize.height / 2));
+var firstMouse = true;
+
+fn mouseCallback(window: ?*glfw.Window, xposIn: f64, yposIn: f64) void {
+    _ = window;
+    if (firstMouse) {
+        lastX = xposIn;
+        lastY = yposIn;
+        firstMouse = false;
+    }
+
+    const xOffset = xposIn - lastX;
+    const yOffset = lastY - yposIn;
+
+    camera1.processMouseMovement(xOffset, yOffset);
+}
+
+test {
+    _ = @import("matrix_util.zig");
 }

@@ -55,21 +55,15 @@ pub fn build(b: *std.Build) void {
     const run_step = b.step("run", "Run the app");
     run_step.dependOn(&run_cmd.step);
 
-    const my_app = b.addModule("my_app", .{
-        .root_source_file = b.path("src/main.zig"), // or whatever your main module is
-    });
-
     const unit_tests = b.addTest(.{
-        .root_source_file = b.path("tests/test.zig"),
+        .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
     });
 
-    unit_tests.root_module.addImport("my_app", my_app);
     unit_tests.root_module.addImport("zig_matrix", zig_matrix_dep.module("zig_matrix"));
 
     const run_unit_tests = b.addRunArtifact(unit_tests);
-
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_unit_tests.step);
 }
