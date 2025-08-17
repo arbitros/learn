@@ -73,7 +73,7 @@ pub fn Camera() type {
                 zlm.Vec4.init(0.0, 0.0, 1.0, -cameraPos.z()),
                 zlm.Vec4.init(0.0, 0.0, 0.0, 1.0),
             );
-            const viewMat = cameraSpace.mul(cameraPosMat);
+            const viewMat = cameraPosMat.mul(cameraSpace);
             return viewMat;
         }
 
@@ -89,15 +89,12 @@ pub fn Camera() type {
             const xOffset = xOffsetIn * self.mouseSens;
             const yOffset = yOffsetIn * self.mouseSens;
 
+            // std.debug.print("x: {d}, y: {d}", .{ xOffsetIn, yOffsetIn });
+
             self.yaw += @as(f32, @floatCast(xOffset));
             self.pitch += @as(f32, @floatCast(yOffset));
 
-            if (self.pitch > 89) {
-                self.pitch = 89;
-            }
-            if (self.pitch < -89) {
-                self.pitch = -89;
-            }
+            // std.debug.print("YAW: {d}, PITCH:{d}\n", .{ self.yaw, self.pitch });
             self.updateCameraVectors();
         }
         pub fn updateCameraVectors(self: *Self) void {

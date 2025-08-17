@@ -43,7 +43,6 @@ pub fn ShaderProgram() type {
         pub fn setMat4(self: Self, mat: zlm.Mat4x4, uniformName: [*:0]const u8) void {
             const matArr = zlm_util.getMat4Ptr(mat);
             const uniformLoc = gl.GetUniformLocation(self.shaderProgram, uniformName);
-            std.debug.print("mat: {any}\nLoc: {d}\nLocstr:", .{ matArr, uniformLoc });
             gl.UniformMatrix4fv(uniformLoc, 1, gl.FALSE, &matArr);
         }
 

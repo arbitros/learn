@@ -14,6 +14,12 @@ const WindowSize = struct {
     pub const height: u32 = 600;
 };
 
+var lastX: f64 = @as(f64, @floatFromInt(WindowSize.width / 2));
+var lastY: f64 = @as(f64, @floatFromInt(WindowSize.height / 2));
+var xpos: f64 = 0;
+var ypos: f64 = 0;
+var firstMouse = true;
+
 var camera1 = camera.Camera().init(45, Vec3.init(0, 0, 3), Vec3.init(0, 0, -5));
 
 pub fn main() !void {
@@ -44,7 +50,8 @@ pub fn main() !void {
     defer gl.makeProcTableCurrent(null);
     glfw.makeContextCurrent(window);
 
-    _ = glfw.setCursorPosCallback(window, @ptrCast(&mouseCallback));
+    // _ = glfw.setCursorPosCallback(window, @ptrCast(&mouseCallback));
+    glfw.setInputMode(window, glfw.Cursor, glfw.CursorDisabled);
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
@@ -102,6 +109,8 @@ pub fn main() !void {
     gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, EBO);
     gl.BufferData(gl.ELEMENT_ARRAY_BUFFER, @sizeOf(u32) * indices.len, &indices, gl.STATIC_DRAW);
 
+    gl.Enable(gl.DEPTH_TEST);
+
     // Specify and link our vertext attribute description
     gl.VertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, 5 * @sizeOf(f32), 0);
     gl.EnableVertexAttribArray(0);
@@ -124,9 +133,12 @@ pub fn main() !void {
 
     while (!glfw.windowShouldClose(window)) {
         processInput(window);
+        glfw.getCursorPos(window, &xpos, &ypos);
+        mouseUpdate(xpos, ypos);
+        // std.debug.print("x: {d}, y: {d}", .{ xpos, ypos });
 
         gl.ClearColor(0.35, 0.4, 0.95, 1.0);
-        gl.Clear(gl.COLOR_BUFFER_BIT);
+        gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
         // Activate shaderProgram
         gl.UseProgram(shaderProgram.shaderProgram);
@@ -134,11 +146,27 @@ pub fn main() !void {
 
         viewMat = camera1.viewMatrix;
         shaderProgram.setMat4(viewMat, "view");
-        gl.DrawElements(gl.TRIANGLES, 6, gl.UNSIGNED_INT, 0);
+        gl.DrawElements(gl.TRIANGLES, 36, gl.UNSIGNED_INT, 0);
 
         glfw.swapBuffers(window);
         glfw.pollEvents();
     }
+}
+
+fn mouseUpdate(xposIn: f64, yposIn: f64) void {
+    if (firstMouse) {
+        lastX = xposIn;
+        lastY = yposIn;
+        firstMouse = false;
+    }
+
+    const xOffset = xposIn - lastX;
+    const yOffset = lastY - yposIn;
+
+    lastX = xposIn;
+    lastY = yposIn;
+
+    camera1.processMouseMovement(xOffset, yOffset);
 }
 
 fn glGetProcAddress(p: glfw.GLProc, proc: [:0]const u8) ?gl.FunctionPointer {
@@ -155,24 +183,6 @@ fn processInput(window: ?*glfw.Window) void {
     if (glfw.getKey(window, glfw.KeyEscape) == glfw.Press) {
         glfw.setWindowShouldClose(window, true);
     }
-}
-
-var lastX: f64 = @as(f64, @floatFromInt(WindowSize.width / 2));
-var lastY: f64 = @as(f64, @floatFromInt(WindowSize.height / 2));
-var firstMouse = true;
-
-fn mouseCallback(window: ?*glfw.Window, xposIn: f64, yposIn: f64) void {
-    _ = window;
-    if (firstMouse) {
-        lastX = xposIn;
-        lastY = yposIn;
-        firstMouse = false;
-    }
-
-    const xOffset = xposIn - lastX;
-    const yOffset = lastY - yposIn;
-
-    camera1.processMouseMovement(xOffset, yOffset);
 }
 
 test {
