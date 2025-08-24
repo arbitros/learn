@@ -46,6 +46,24 @@ pub fn ShaderProgram() type {
             gl.UniformMatrix4fv(uniformLoc, 1, gl.FALSE, &matArr);
         }
 
+        pub fn setVec3(self: Self, vec: zlm.Vec3, uniformName: [*:0]const u8) void {
+            const vec3: [3]f32 = vec.elements;
+            const uniformLoc = gl.GetUniformLocation(self.shaderProgram, uniformName);
+            gl.Uniform3fv(uniformLoc, 1, &vec3);
+        }
+        pub fn setVec4(self: Self, vec: zlm.Vec4, uniformName: [*:0]const u8) void {
+            const vec4: [4]f32 = vec.elements;
+            const uniformLoc = gl.GetUniformLocation(self.shaderProgram, uniformName);
+            gl.Uniform4fv(uniformLoc, 1, &vec4);
+        }
+        pub fn setVec3Arr(self: Self, vecArr: [*]zlm.Vec4, len: usize, uniformName: [*:0]const u8) void {
+            var buffer: [32]u8 = undefined;
+            for (0..len) |i| {
+                const arrayName = try std.fmt.bufPrint(&buffer, "{s}[{d}]", .{ uniformName, i });
+                self.setVec3(arrayName, vecArr[i]);
+            }
+        }
+
         fn initShader(allocator: std.mem.Allocator, shaderType: comptime_int, shaderPath: []const u8) !c_uint {
             var shader: c_uint = undefined;
             shader = gl.CreateShader(shaderType);

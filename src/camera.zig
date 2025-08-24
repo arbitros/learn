@@ -8,14 +8,14 @@ const Mat4 = zlm.Mat4x4;
 pub fn Camera() type {
     return struct {
         const Self = @This();
-        const UP = zlm.Vec3.init(0.0, 1.0, 0.0);
+        const GLOBAL_UP = zlm.Vec3.init(0.0, 1.0, 0.0);
         const SENSITIVITY = 0.1;
         const SPEED = 2.5;
 
-        cameraPos: Vec3,
-        cameraFront: Vec3,
-        cameraUp: Vec3,
-        cameraRight: Vec3,
+        pos: Vec3,
+        front: Vec3,
+        up: Vec3,
+        right: Vec3,
 
         mouseSens: f32,
         movementSpeed: f32,
@@ -23,80 +23,77 @@ pub fn Camera() type {
         pitch: f32,
 
         projMatrix: zlm.Mat4x4,
-        viewMatrix: zlm.Mat4x4,
 
-        pub fn init(fov: f32, cameraPos: Vec3, objPos: Vec3) Self {
+        pub fn init(fov: f32, pos: Vec3, objPos: Vec3, aspect: f32) Self {
             const projMatrix = blk: {
                 const n = 0.1;
                 const t = math.tan(math.degreesToRadians(fov / 2)) * n;
-                const r = t;
+                const b = -t;
+                const r = t * aspect;
+                const l = -r;
                 const f = 100;
                 const projmat = zlm.Mat4x4.init(
-                    zlm.Vec4.init(n / r, 0, 0, 0),
-                    zlm.Vec4.init(0, n / t, 0, 0),
+                    zlm.Vec4.init(2 * n / (r - l), 0, (r + l) / (r - l), 0),
+                    zlm.Vec4.init(0, 2 * n / (t - b), (t + b) / (t - b), 0),
                     zlm.Vec4.init(0, 0, -(f + n) / (f - n), -2 * f * n / (f - n)),
                     zlm.Vec4.init(0, 0, -1, 0),
                 );
                 break :blk projmat;
             };
 
-            const cameraDir = Vec3.norm(objPos.sub(cameraPos)); //camera vectors
-            const cameraRight = Vec3.cross(UP, cameraDir);
-            const cameraUp = Vec3.cross(cameraRight, cameraDir);
+            const front = Vec3.norm(objPos.sub(pos)); //camera vectors
+            const right = Vec3.cross(GLOBAL_UP, front);
+            const up = Vec3.cross(right, front);
             return Self{
-                .cameraPos = cameraPos,
-                .cameraFront = cameraDir,
-                .cameraUp = cameraUp,
-                .cameraRight = cameraRight,
+                .pos = pos,
+                .front = front,
+                .up = up,
+                .right = right,
                 .projMatrix = projMatrix,
-                .viewMatrix = lookAt(cameraPos, objPos),
                 .mouseSens = SENSITIVITY,
                 .movementSpeed = SPEED,
                 .yaw = 0,
                 .pitch = 0,
             };
         }
-        pub fn lookAt(cameraPos: Vec3, objPos: Vec3) Mat4 {
-            const cameraDir = Vec3.norm(objPos.sub(cameraPos)); //camera vectors
-            const cameraRight = Vec3.cross(UP, cameraDir);
-            const cameraUp = Vec3.cross(cameraRight, cameraDir);
+        pub fn lookAt(pos: Vec3, objPos: Vec3) Mat4 {
+            const front = Vec3.norm(objPos.sub(pos)); //camera vectors
+            const right = Vec3.norm(Vec3.cross(GLOBAL_UP, front));
+            const up = Vec3.norm(Vec3.cross(right, front));
 
             const cameraSpace = zlm.Mat4x4.init(
-                zlm.Vec4.init(cameraRight.x(), cameraRight.y(), cameraRight.z(), 0.0),
-                zlm.Vec4.init(cameraUp.x(), cameraUp.y(), cameraUp.z(), 0.0),
-                zlm.Vec4.init(cameraDir.x(), cameraDir.y(), cameraDir.z(), 0.0),
+                zlm.Vec4.init(right.x(), right.y(), right.z(), 0.0),
+                zlm.Vec4.init(up.x(), up.y(), up.z(), 0.0),
+                zlm.Vec4.init(front.x(), front.y(), front.z(), 0.0),
                 zlm.Vec4.init(0.0, 0.0, 0.0, 1.0),
             );
-            const cameraPosMat = zlm.Mat4x4.init(
-                zlm.Vec4.init(1.0, 0.0, 0.0, -cameraPos.x()),
-                zlm.Vec4.init(0.0, 1.0, 0.0, -cameraPos.y()),
-                zlm.Vec4.init(0.0, 0.0, 1.0, -cameraPos.z()),
+            const posMat = zlm.Mat4x4.init(
+                zlm.Vec4.init(1.0, 0.0, 0.0, -pos.x()),
+                zlm.Vec4.init(0.0, 1.0, 0.0, -pos.y()),
+                zlm.Vec4.init(0.0, 0.0, 1.0, -pos.z()),
                 zlm.Vec4.init(0.0, 0.0, 0.0, 1.0),
             );
-            const viewMat = cameraPosMat.mul(cameraSpace);
+            const viewMat = posMat.mul(cameraSpace);
             return viewMat;
         }
 
         pub fn getViewMatrix(self: Self) Mat4 {
-            return lookAt(self.cameraPos, self.cameraPos.add(self.cameraFront));
-        }
-
-        pub fn updateViewMatrix(self: *Self) void {
-            self.viewMatrix = self.getViewMatrix();
+            return lookAt(self.pos, self.pos.add(self.front));
         }
 
         pub fn processMouseMovement(self: *Self, xOffsetIn: f64, yOffsetIn: f64) void {
             const xOffset = xOffsetIn * self.mouseSens;
             const yOffset = yOffsetIn * self.mouseSens;
 
-            // std.debug.print("x: {d}, y: {d}", .{ xOffsetIn, yOffsetIn });
+            const yaw = @as(f32, @floatCast(xOffset));
+            const pitch = if (@as(f32, @floatCast(yOffset)) > 89) 89 else @as(f32, @floatCast(yOffset));
 
-            self.yaw += @as(f32, @floatCast(xOffset));
-            self.pitch += @as(f32, @floatCast(yOffset));
+            self.yaw += yaw;
+            self.pitch += pitch;
 
-            // std.debug.print("YAW: {d}, PITCH:{d}\n", .{ self.yaw, self.pitch });
             self.updateCameraVectors();
         }
+
         pub fn updateCameraVectors(self: *Self) void {
             const front = Vec3.init(
                 math.cos(math.degreesToRadians(self.yaw)) * math.cos(math.degreesToRadians(self.pitch)),
@@ -104,11 +101,9 @@ pub fn Camera() type {
                 math.sin(math.degreesToRadians(self.yaw)) * math.cos(math.degreesToRadians(self.pitch)),
             );
 
-            self.cameraFront = front.norm();
-            self.cameraRight = Vec3.norm(self.cameraFront.cross(UP));
-            self.cameraUp = Vec3.norm(self.cameraRight.cross(self.cameraFront));
-
-            self.updateViewMatrix();
+            self.front = front.norm();
+            self.right = Vec3.norm(self.front.cross(GLOBAL_UP));
+            self.up = Vec3.norm(self.right.cross(self.front));
         }
     };
 }
