@@ -51,6 +51,7 @@ pub fn ShaderProgram() type {
             const uniformLoc = gl.GetUniformLocation(self.shaderProgram, uniformName);
             gl.Uniform3fv(uniformLoc, 1, &vec3);
         }
+
         pub fn setiVec3(self: Self, vec: zlm.GenericVector(3, i32), uniformName: [*:0]const u8) void {
             const ivec3: [3]i32 = vec.elements;
             const uniformLoc = gl.GetUniformLocation(self.shaderProgram, uniformName);

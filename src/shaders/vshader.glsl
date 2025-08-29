@@ -20,11 +20,11 @@ void main()
     ivec3 voxPos = ivec3(row, col, height);
     uvec4 voxelType = texelFetch(chunkData, voxPos, 0);
 
-    // if (voxelType.r == 0u) {
-    //     gl_Position = vec4(2,0,0,0);
-    //     return;
-    // }
+    if (voxelType.r == 0u) {
+        gl_Position = vec4(0,0,0,-1);
+        return;
+    }
 
-    gl_Position = projection * view * model * vec4(aPos + voxPos, 1.0); // add chunkPos
-    fragPos = vec3(model * vec4(aPos + voxPos, 1.0));
+    gl_Position = projection * view * model * vec4(chunkPos + aPos + voxPos, 1.0);
+    fragPos = vec3(model * vec4(chunkPos + aPos + voxPos, 1.0));
 }

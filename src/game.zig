@@ -26,8 +26,6 @@ pub fn Game(CHUNK_SIZE: u32, windowWidth: u32, windowHeight: u32) type {
         pub fn init(FOV: f32, obj: Vec3, objPos: Vec3, window: ?*glfw.Window, allocator: std.mem.Allocator) anyerror!Self {
             const camera = _camera.Camera(windowWidth, windowHeight).init(FOV, obj, objPos, @as(f32, @floatFromInt(windowWidth / windowHeight)));
 
-            std.debug.print("GLFW Init Succeeded.\n", .{});
-
             var shader: _shader.ShaderProgram() = try _shader.ShaderProgram().init(
                 allocator,
                 "src/shaders/vshader.glsl",
@@ -36,12 +34,14 @@ pub fn Game(CHUNK_SIZE: u32, windowWidth: u32, windowHeight: u32) type {
 
             gl.UseProgram(shader.shaderProgram);
             shader.setInt(CHUNK_SIZE, "chunkSize");
-            shader.setVec4(zlm.Vec4.init(0.05, 0.65, 0.2, 1.0), "objectColor");
-            shader.setVec4(zlm.Vec4.init(1.0, 1.0, 1.0, 1.0), "lightColor");
+            shader.setVec3(zlm.Vec3.init(0.05, 0.65, 0.2), "objectColor");
+            shader.setVec3(zlm.Vec3.init(1.0, 1.0, 1.0), "lightColor");
+            shader.setMat4(camera.projMatrix, "projection");
+            shader.setMat4(zlm.Mat4x4.identity(), "model");
 
             var chunkMap = ChunkMap.init(allocator);
-            for (0..1) |i| {
-                const chunk = try _chunk.Chunk(CHUNK_SIZE).init(&shader, Vec3.init(@as(f32, @floatFromInt(CHUNK_SIZE * i)), 0, 0), allocator);
+            for (0..9) |i| {
+                const chunk = try _chunk.Chunk(CHUNK_SIZE).init(Vec3.init(@as(f32, @floatFromInt(CHUNK_SIZE * i)), 0, 0), allocator);
                 try chunkMap.put(chunk.pos, chunk);
             }
 
@@ -102,13 +102,10 @@ pub fn Game(CHUNK_SIZE: u32, windowWidth: u32, windowHeight: u32) type {
             gl.UseProgram(self.currentShader.shaderProgram);
             self.currentShader.setMat4(self.camera.getViewMatrix(), "view");
             self.currentShader.setVec3(self.camera.pos, "lightPos");
-            self.currentShader.setInt(CHUNK_SIZE, "chunkSize");
-            self.currentShader.setVec4(zlm.Vec4.init(0.05, 0.65, 0.2, 1.0), "objectColor");
-            self.currentShader.setVec4(zlm.Vec4.init(1.0, 1.0, 1.0, 1.0), "lightColor");
 
             var iterator = self.chunkMap.iterator();
             while (iterator.next()) |entry| {
-                entry.value_ptr.draw(self.VAOs);
+                entry.value_ptr.draw(self.VAOs, self.currentShader);
             }
 
             glfw.swapBuffers(self.window);

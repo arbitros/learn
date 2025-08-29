@@ -22,7 +22,6 @@ pub fn Chunk(CHUNK_SIZE: u32) type {
         blocks: []u8, //MAX_BLOCKS
         blockInfo: [6]c_uint,
         pos: Vec3,
-        shader: *_shader.ShaderProgram(),
         playerPresent: bool,
         allocator: std.mem.Allocator,
 
@@ -39,15 +38,15 @@ pub fn Chunk(CHUNK_SIZE: u32) type {
             }
         };
 
-        pub fn init(shader: *_shader.ShaderProgram(), pos: Vec3, allocator: std.mem.Allocator) !Self {
+        pub fn init(pos: Vec3, allocator: std.mem.Allocator) !Self {
             const blocks = try allocator.alloc(u8, MAX_BLOCKS);
-            @memset(blocks, 1);
+            @memset(blocks, 0);
             const panels = try allocator.alloc(u8, 6 * MAX_BLOCKS); //Note, flat array, arr[p*MAX_BLOCKS + b] = arr[p][b]
-            @memset(panels, 1);
+            @memset(panels, 0);
 
-            // for (0..6) |i| {
-            //     panels[i * MAX_BLOCKS + 0] = 1;
-            // }
+            for (0..6) |i| {
+                panels[i * MAX_BLOCKS + 0] = 1;
+            }
 
             var blockInfo: [6]c_uint = undefined;
 
@@ -65,7 +64,7 @@ pub fn Chunk(CHUNK_SIZE: u32) type {
                     0,
                     gl.RED_INTEGER,
                     gl.UNSIGNED_BYTE,
-                    @ptrCast(&panels),
+                    @ptrCast(panels),
                 );
                 gl.TexParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
                 gl.TexParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
@@ -79,7 +78,6 @@ pub fn Chunk(CHUNK_SIZE: u32) type {
                 .blocks = blocks,
                 .blockInfo = blockInfo,
                 .pos = pos,
-                .shader = shader,
                 .playerPresent = true,
                 .allocator = allocator,
             };
@@ -95,15 +93,15 @@ pub fn Chunk(CHUNK_SIZE: u32) type {
             // }
         }
         pub fn update() void {}
-        pub fn draw(self: Self, VAOs: [6]c_uint) void {
+        pub fn draw(self: Self, VAOs: [6]c_uint, shader: _shader.ShaderProgram()) void {
             for (0..6) |i| {
-                self.shader.setVec3(normals[i], "normal");
+                shader.setVec3(normals[i], "normal");
                 const unit = @as(c_uint, @intCast(i));
                 gl.BindVertexArray(VAOs[i]);
                 gl.ActiveTexture(gl.TEXTURE0 + unit);
                 gl.BindTexture(gl.TEXTURE_3D, self.blockInfo[i]);
-                self.shader.setInt(gl.TEXTURE0 + unit, "chunkData");
-                self.shader.setVec3(self.pos, "chunkPos");
+                shader.setInt(gl.TEXTURE0 + unit, "chunkData");
+                shader.setVec3(self.pos, "chunkPos");
                 gl.DrawElementsInstanced(gl.TRIANGLES, 6, gl.UNSIGNED_INT, null, @intCast(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE));
             }
         }

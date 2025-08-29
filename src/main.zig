@@ -16,7 +16,7 @@ const WindowSize = struct {
     pub const height: u32 = 1000;
 };
 
-const CHUNK_SIZE = 4;
+const CHUNK_SIZE = 8;
 const MAX_BLOCKS = math.powi(u32, CHUNK_SIZE, 3);
 
 pub fn main() !void {
@@ -24,6 +24,8 @@ pub fn main() !void {
     const window: ?*glfw.Window = try glfw.createWindow(WindowSize.width, WindowSize.height, "Hello World", null, null);
     glfw.makeContextCurrent(window);
     glfw.setInputMode(window, glfw.Cursor, glfw.CursorDisabled);
+
+    std.debug.print("GLFW Init Succeeded.\n", .{});
 
     var procs: gl.ProcTable = undefined;
     if (!procs.init(glfw.getProcAddress)) return error.InitFailed;
