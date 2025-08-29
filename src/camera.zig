@@ -5,7 +5,7 @@ const math = std.math;
 const Vec3 = zlm.Vec3;
 const Mat4 = zlm.Mat4x4;
 
-pub fn Camera() type {
+pub fn Camera(windowWidth: u32, windowHeight: u32) type {
     return struct {
         const Self = @This();
         const GLOBAL_UP = zlm.Vec3.init(0.0, 1.0, 0.0);
@@ -22,7 +22,27 @@ pub fn Camera() type {
         yaw: f32,
         pitch: f32,
 
+        mouseVar: Mouse,
+
         projMatrix: zlm.Mat4x4,
+
+        pub const Mouse = struct {
+            lastX: f64,
+            lastY: f64,
+            xpos: f64,
+            ypos: f64,
+            firstMouse: bool,
+
+            pub fn init() Mouse {
+                return Mouse{
+                    .lastX = @as(f64, @floatFromInt(windowWidth / 2)),
+                    .lastY = @as(f64, @floatFromInt(windowHeight / 2)),
+                    .xpos = 0,
+                    .ypos = 0,
+                    .firstMouse = true,
+                };
+            }
+        };
 
         pub fn init(fov: f32, pos: Vec3, objPos: Vec3, aspect: f32) Self {
             const projMatrix = blk: {
@@ -54,6 +74,7 @@ pub fn Camera() type {
                 .movementSpeed = SPEED,
                 .yaw = 0,
                 .pitch = 0,
+                .mouseVar = Mouse.init(),
             };
         }
         pub fn lookAt(pos: Vec3, objPos: Vec3) Mat4 {
@@ -79,6 +100,22 @@ pub fn Camera() type {
 
         pub fn getViewMatrix(self: Self) Mat4 {
             return lookAt(self.pos, self.pos.add(self.front));
+        }
+
+        pub fn mouseUpdate(self: *Self, xposIn: f64, yposIn: f64) void {
+            if (self.mouseVar.firstMouse) {
+                self.mouseVar.lastX = xposIn;
+                self.mouseVar.lastY = yposIn;
+                self.mouseVar.firstMouse = false;
+            }
+
+            const xOffset = xposIn - self.mouseVar.lastX;
+            const yOffset = self.mouseVar.lastY - yposIn;
+
+            self.mouseVar.lastX = xposIn;
+            self.mouseVar.lastY = yposIn;
+
+            self.processMouseMovement(xOffset, yOffset);
         }
 
         pub fn processMouseMovement(self: *Self, xOffsetIn: f64, yOffsetIn: f64) void {

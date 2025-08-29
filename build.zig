@@ -62,6 +62,8 @@ pub fn build(b: *std.Build) void {
     });
 
     unit_tests.root_module.addImport("zig_matrix", zig_matrix_dep.module("zig_matrix"));
+    unit_tests.root_module.addImport("glfw", glfw_mod);
+    unit_tests.root_module.addImport("gl", gl_bindings);
 
     const run_unit_tests = b.addRunArtifact(unit_tests);
     const test_step = b.step("test", "Run unit tests");

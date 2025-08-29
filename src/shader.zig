@@ -51,6 +51,11 @@ pub fn ShaderProgram() type {
             const uniformLoc = gl.GetUniformLocation(self.shaderProgram, uniformName);
             gl.Uniform3fv(uniformLoc, 1, &vec3);
         }
+        pub fn setiVec3(self: Self, vec: zlm.GenericVector(3, i32), uniformName: [*:0]const u8) void {
+            const ivec3: [3]i32 = vec.elements;
+            const uniformLoc = gl.GetUniformLocation(self.shaderProgram, uniformName);
+            gl.Uniform3iv(uniformLoc, 1, &ivec3);
+        }
         pub fn setVec4(self: Self, vec: zlm.Vec4, uniformName: [*:0]const u8) void {
             const vec4: [4]f32 = vec.elements;
             const uniformLoc = gl.GetUniformLocation(self.shaderProgram, uniformName);
@@ -62,6 +67,10 @@ pub fn ShaderProgram() type {
                 const arrayName = try std.fmt.bufPrint(&buffer, "{s}[{d}]", .{ uniformName, i });
                 self.setVec3(arrayName, vecArr[i]);
             }
+        }
+        pub fn setInt(self: Self, int: c_uint, uniformName: [*:0]const u8) void {
+            const uniformLoc = gl.GetUniformLocation(self.shaderProgram, uniformName);
+            gl.Uniform1i(uniformLoc, @intCast(int));
         }
 
         fn initShader(allocator: std.mem.Allocator, shaderType: comptime_int, shaderPath: []const u8) !c_uint {
