@@ -3,7 +3,7 @@ layout (location = 0) in vec3 aPos;
 
 uniform usampler3D chunkData; // the sampler transforms 1D to 3D and fills starts with filling rows, then columns then z. (1,2,3,4,5,6,7,8,9) -> (1,2,3;4,5,6;7,8,9)
 uniform int chunkSize;
-uniform vec3 chunkPos;
+uniform ivec3 chunkPos;
 
 uniform mat4 model;
 uniform mat4 view;
@@ -21,7 +21,7 @@ void main()
     uvec4 voxelType = texelFetch(chunkData, voxPos, 0);
 
     if (voxelType.r == 0u) {
-        gl_Position = vec4(0,0,0,-1);
+        gl_Position = vec4(2,0,0,1);
         return;
     }
 

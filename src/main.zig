@@ -35,7 +35,7 @@ pub fn main() !void {
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
-    var game = try _game.Game(CHUNK_SIZE, WindowSize.width, WindowSize.height).init(90, Vec3.init(0, 0, 3), Vec3.init(0, 0, 0), window, allocator);
+    var game = try _game.Game(CHUNK_SIZE, WindowSize.width, WindowSize.height).init(90, Vec3.init(0, 0, 0), Vec3.init(0, 0, 0), window, allocator);
     defer game.deinit();
 
     const vertices = [5 * 8]f32{
@@ -92,7 +92,7 @@ pub fn main() !void {
     glfw.swapInterval(1); //V-sync
 
     while (!glfw.windowShouldClose(game.window)) {
-        game.update();
+        try game.update();
         game.draw();
     }
 }

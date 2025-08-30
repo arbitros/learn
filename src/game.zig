@@ -11,15 +11,18 @@ const Mat4 = zlm.Mat4x4;
 const iVec3 = zlm.GenericVector(3, i32);
 
 pub fn Game(CHUNK_SIZE: u32, windowWidth: u32, windowHeight: u32) type {
-    const ChunkMap = std.HashMap(Vec3, _chunk.Chunk(CHUNK_SIZE), _chunk.Chunk(CHUNK_SIZE).Context, 1);
+    const ChunkMap = std.HashMap(iVec3, _chunk.Chunk(CHUNK_SIZE), _chunk.Chunk(CHUNK_SIZE).Context, 1);
+    const VIEW_RANGE: u32 = 6;
 
     return struct {
         window: ?*glfw.Window,
         camera: _camera.Camera(windowWidth, windowHeight),
         deltaTime: f32,
         currentShader: _shader.ShaderProgram(),
+        currentChunk: *_chunk.Chunk(CHUNK_SIZE),
         VAOs: [6]c_uint,
         chunkMap: ChunkMap,
+        allocator: std.mem.Allocator,
 
         const Self = @This();
 
@@ -40,9 +43,24 @@ pub fn Game(CHUNK_SIZE: u32, windowWidth: u32, windowHeight: u32) type {
             shader.setMat4(zlm.Mat4x4.identity(), "model");
 
             var chunkMap = ChunkMap.init(allocator);
-            for (0..9) |i| {
-                const chunk = try _chunk.Chunk(CHUNK_SIZE).init(Vec3.init(@as(f32, @floatFromInt(CHUNK_SIZE * i)), 0, 0), allocator);
-                try chunkMap.put(chunk.pos, chunk);
+            const chunkOrg = try _chunk.Chunk(CHUNK_SIZE).init(iVec3.init(0, 0, 0), allocator);
+            try chunkMap.put(chunkOrg.pos, chunkOrg);
+
+            var i: i32 = -@as(i32, @intCast(VIEW_RANGE / 2));
+            var j: i32 = i;
+
+            while (i <= VIEW_RANGE / 2) : (i += 1) {
+                while (j <= VIEW_RANGE / 2) : (j += 1) {
+                    if (i == 0 and j == 0) continue;
+                    const chunk = try _chunk.Chunk(CHUNK_SIZE).init(iVec3.init(
+                        @as(i32, @intCast(CHUNK_SIZE)) * i,
+                        0,
+                        @as(i32, @intCast(CHUNK_SIZE)) * j,
+                    ), allocator);
+                    try chunkMap.put(chunk.pos, chunk);
+                    std.debug.print("Vec: {any}, Ptr: {*}\n", .{ chunk.pos, chunk.blocks });
+                }
+                j = -@as(i32, @intCast(VIEW_RANGE / 2));
             }
 
             return Self{
@@ -50,8 +68,10 @@ pub fn Game(CHUNK_SIZE: u32, windowWidth: u32, windowHeight: u32) type {
                 .window = window,
                 .deltaTime = 0.04,
                 .currentShader = shader,
+                .currentChunk = chunkMap.getPtr(iVec3.init(0, 0, 0)) orelse return error.NoChunk,
                 .VAOs = undefined,
                 .chunkMap = chunkMap,
+                .allocator = allocator,
             };
         }
         pub fn deinit(self: *Self) void {
@@ -81,18 +101,78 @@ pub fn Game(CHUNK_SIZE: u32, windowWidth: u32, windowHeight: u32) type {
                 self.camera.pos = Vec3.sub(self.camera.pos, Vec3.mulScalar(self.camera.right, self.deltaTime));
             }
             if (glfw.getKey(self.window, glfw.KeySpace) == glfw.Press) {
-                self.camera.pos = Vec3.sub(self.camera.pos, Vec3.mulScalar(self.camera.up, self.deltaTime));
+                self.camera.pos = Vec3.sub(self.camera.pos, Vec3.mulScalar(self.camera.glob_up, self.deltaTime));
             }
             if (glfw.getKey(self.window, glfw.KeyLeftControl) == glfw.Press) {
-                self.camera.pos = Vec3.add(self.camera.pos, Vec3.mulScalar(self.camera.up, self.deltaTime));
+                self.camera.pos = Vec3.add(self.camera.pos, Vec3.mulScalar(self.camera.glob_up, self.deltaTime));
             }
         }
 
-        pub fn update(self: *Self) void {
+        pub fn update(self: *Self) !void {
             self.keyboardWalk();
             processInput(self.window);
             glfw.getCursorPos(self.window, &self.camera.mouseVar.xpos, &self.camera.mouseVar.ypos);
             self.camera.mouseUpdate(self.camera.mouseVar.xpos, self.camera.mouseVar.ypos);
+
+            self.camera.coordPos = iVec3.init(
+                @as(i32, @intFromFloat(self.camera.pos.x())),
+                @as(i32, @intFromFloat(self.camera.pos.y())),
+                @as(i32, @intFromFloat(self.camera.pos.z())),
+            );
+            try self.chunkLoading();
+        }
+
+        pub fn chunkLoading(self: *Self) !void { // works one direction, memory leaks!!
+            const pos = self.camera.coordPos;
+            const chunkPos = self.currentChunk.pos;
+            const maxView: i32 = VIEW_RANGE * CHUNK_SIZE;
+
+            var unloaded: [VIEW_RANGE + 1]iVec3 = undefined;
+            var loaded: [VIEW_RANGE + 1]iVec3 = undefined;
+            if (pos.x() > chunkPos.x() + CHUNK_SIZE) {
+                for (0..unloaded.len) |i| {
+                    unloaded[i] = iVec3.init(
+                        chunkPos.x() - maxView / 2,
+                        0,
+                        chunkPos.z() - maxView / 2 + @as(i32, @intCast(i * CHUNK_SIZE)),
+                    );
+                    loaded[i] = iVec3.init(
+                        chunkPos.x() + maxView / 2 + CHUNK_SIZE,
+                        0,
+                        chunkPos.z() - maxView / 2 + @as(i32, @intCast(i * CHUNK_SIZE)),
+                    );
+                }
+                // std.debug.print("playerPos: {any}", .{self.camera.coordPos});
+                self.currentChunk = self.chunkMap.getPtr(iVec3.init(CHUNK_SIZE, 0, 0).add(self.currentChunk.pos)) orelse return error.what;
+                try self.moveChunks(unloaded, loaded);
+            }
+            // if (pos.x() < chunkPos.x() - CHUNK_SIZE) {
+            //     for (0..unloaded.len) |i| {
+            //         unloaded[i] = iVec3.init(
+            //             chunkPos.x() + maxView / 2,
+            //             0,
+            //             chunkPos.z() + maxView / 2 - @as(i32, @intCast(i * CHUNK_SIZE)),
+            //         );
+            //         loaded[i] = iVec3.init(
+            //             chunkPos.x() - maxView / 2,
+            //             0,
+            //             chunkPos.z() + maxView / 2 + @as(i32, @intCast(i * CHUNK_SIZE)),
+            //         );
+            //     }
+            //     self.currentChunk = self.chunkMap.getPtr(iVec3.init(CHUNK_SIZE, 0, 0).add(self.currentChunk.pos)) orelse return error.what;
+            // }
+        }
+        fn moveChunks(self: *Self, unloaded: [VIEW_RANGE + 1]iVec3, loaded: [VIEW_RANGE + 1]iVec3) !void {
+            var chunk: *_chunk.Chunk(CHUNK_SIZE) = undefined;
+            for (0..unloaded.len) |i| {
+                chunk = self.chunkMap.getPtr(unloaded[i]) orelse return error.noChunkFound;
+                // std.debug.print("chunkPos: {any}, Ptr: {*}\n", .{ unloaded[i], chunk.blocks });
+                chunk.deinit();
+                _ = self.chunkMap.remove(unloaded[i]);
+                const newChunk = try _chunk.Chunk(CHUNK_SIZE).init(loaded[i], self.allocator);
+                try self.chunkMap.put(loaded[i], newChunk);
+                std.debug.print("chunkPos: {any}, Ptr: {*}\n", .{ loaded[i], newChunk.blocks });
+            }
         }
 
         pub fn draw(self: Self) void {

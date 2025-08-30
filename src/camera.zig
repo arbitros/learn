@@ -3,6 +3,7 @@ const std = @import("std");
 const math = std.math;
 
 const Vec3 = zlm.Vec3;
+const iVec3 = zlm.GenericVector(3, i32);
 const Mat4 = zlm.Mat4x4;
 
 pub fn Camera(windowWidth: u32, windowHeight: u32) type {
@@ -13,8 +14,10 @@ pub fn Camera(windowWidth: u32, windowHeight: u32) type {
         const SPEED = 2.5;
 
         pos: Vec3,
+        coordPos: iVec3,
         front: Vec3,
         up: Vec3,
+        glob_up: Vec3,
         right: Vec3,
 
         mouseSens: f32,
@@ -51,7 +54,7 @@ pub fn Camera(windowWidth: u32, windowHeight: u32) type {
                 const b = -t;
                 const r = t * aspect;
                 const l = -r;
-                const f = 100;
+                const f = 300;
                 const projmat = zlm.Mat4x4.init(
                     zlm.Vec4.init(2 * n / (r - l), 0, (r + l) / (r - l), 0),
                     zlm.Vec4.init(0, 2 * n / (t - b), (t + b) / (t - b), 0),
@@ -66,8 +69,14 @@ pub fn Camera(windowWidth: u32, windowHeight: u32) type {
             const up = Vec3.cross(right, front);
             return Self{
                 .pos = pos,
+                .coordPos = iVec3.init(
+                    @as(i32, @intFromFloat(pos.x())),
+                    @as(i32, @intFromFloat(pos.y())),
+                    @as(i32, @intFromFloat(pos.z())),
+                ),
                 .front = front,
                 .up = up,
+                .glob_up = GLOBAL_UP,
                 .right = right,
                 .projMatrix = projMatrix,
                 .mouseSens = SENSITIVITY,
@@ -123,10 +132,16 @@ pub fn Camera(windowWidth: u32, windowHeight: u32) type {
             const yOffset = yOffsetIn * self.mouseSens;
 
             const yaw = @as(f32, @floatCast(xOffset));
-            const pitch = if (@as(f32, @floatCast(yOffset)) > 89) 89 else @as(f32, @floatCast(yOffset));
+            const pitch = self.pitch + @as(f32, @floatCast(yOffset));
+            if (pitch > 89) {
+                self.pitch = 89;
+            } else if (pitch < -89) {
+                self.pitch = -89;
+            } else {
+                self.pitch = pitch;
+            }
 
             self.yaw += yaw;
-            self.pitch += pitch;
 
             self.updateCameraVectors();
         }

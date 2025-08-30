@@ -21,24 +21,27 @@ pub fn Chunk(CHUNK_SIZE: u32) type {
         panels: []u8, //MAX_BLOCKS*6
         blocks: []u8, //MAX_BLOCKS
         blockInfo: [6]c_uint,
-        pos: Vec3,
+        pos: iVec3,
         playerPresent: bool,
         allocator: std.mem.Allocator,
 
         const Self = @This();
 
         pub const Context = struct {
-            pub fn hash(self: @This(), key: Vec3) u64 {
+            pub fn hash(self: @This(), key: iVec3) u64 {
                 _ = self;
-                return @as(u64, @intFromFloat(100 * key.x() + 10 * key.y() + key.z()));
+                const y: u64 = if (key.y() < 0) @as(u64, @intCast(-key.y())) + CHUNK_SIZE + 2 else @as(u64, @intCast(key.y()));
+                const x: u64 = if (key.x() < 0) 0xFFFFFFFFFF - @divFloor(@as(u32, @intCast(-key.x())), @as(u64, @intCast(CHUNK_SIZE))) else @intCast(key.x());
+                const z: u64 = if (key.z() < 0) 0xFFFFFFFFFF - @divFloor(@as(u32, @intCast(-key.z())), @as(u64, @intCast(CHUNK_SIZE))) else @intCast(key.z());
+                return @as(u64, @intCast(100 * x + 10 * y + z));
             }
-            pub fn eql(self: @This(), key1: Vec3, key2: Vec3) bool {
+            pub fn eql(self: @This(), key1: iVec3, key2: iVec3) bool {
                 _ = self;
-                return Vec3.eql(key1, key2);
+                return iVec3.eql(key1, key2);
             }
         };
 
-        pub fn init(pos: Vec3, allocator: std.mem.Allocator) !Self {
+        pub fn init(pos: iVec3, allocator: std.mem.Allocator) !Self {
             const blocks = try allocator.alloc(u8, MAX_BLOCKS);
             @memset(blocks, 0);
             const panels = try allocator.alloc(u8, 6 * MAX_BLOCKS); //Note, flat array, arr[p*MAX_BLOCKS + b] = arr[p][b]
@@ -101,7 +104,7 @@ pub fn Chunk(CHUNK_SIZE: u32) type {
                 gl.ActiveTexture(gl.TEXTURE0 + unit);
                 gl.BindTexture(gl.TEXTURE_3D, self.blockInfo[i]);
                 shader.setInt(gl.TEXTURE0 + unit, "chunkData");
-                shader.setVec3(self.pos, "chunkPos");
+                shader.setiVec3(self.pos, "chunkPos");
                 gl.DrawElementsInstanced(gl.TRIANGLES, 6, gl.UNSIGNED_INT, null, @intCast(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE));
             }
         }
