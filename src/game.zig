@@ -12,7 +12,7 @@ const iVec3 = zlm.GenericVector(3, i32);
 
 pub fn Game(CHUNK_SIZE: u32, windowWidth: u32, windowHeight: u32) type {
     const ChunkMap = std.HashMap(iVec3, _chunk.Chunk(CHUNK_SIZE), _chunk.Chunk(CHUNK_SIZE).Context, 1);
-    const VIEW_RANGE: u32 = 6;
+    const VIEW_RANGE: u32 = 20;
 
     return struct {
         window: ?*glfw.Window,
@@ -58,7 +58,7 @@ pub fn Game(CHUNK_SIZE: u32, windowWidth: u32, windowHeight: u32) type {
                         @as(i32, @intCast(CHUNK_SIZE)) * j,
                     ), allocator);
                     try chunkMap.put(chunk.pos, chunk);
-                    std.debug.print("Vec: {any}, Ptr: {*}\n", .{ chunk.pos, chunk.blocks });
+                    // std.debug.print("Vec: {any}, Ptr: {*}\n", .{ chunk.pos, chunk.blocks });
                 }
                 j = -@as(i32, @intCast(VIEW_RANGE / 2));
             }
@@ -66,7 +66,7 @@ pub fn Game(CHUNK_SIZE: u32, windowWidth: u32, windowHeight: u32) type {
             return Self{
                 .camera = camera,
                 .window = window,
-                .deltaTime = 0.04,
+                .deltaTime = 0.06,
                 .currentShader = shader,
                 .currentChunk = chunkMap.getPtr(iVec3.init(0, 0, 0)) orelse return error.NoChunk,
                 .VAOs = undefined,
@@ -88,6 +88,11 @@ pub fn Game(CHUNK_SIZE: u32, windowWidth: u32, windowHeight: u32) type {
             gl.makeProcTableCurrent(null);
         }
         pub fn keyboardWalk(self: *Self) void {
+            if (glfw.getKey(self.window, glfw.KeyLeftShift) == glfw.Press) {
+                self.deltaTime = 0.12;
+            } else {
+                self.deltaTime = 0.06;
+            }
             if (glfw.getKey(self.window, glfw.KeyW) == glfw.Press) {
                 self.camera.pos = Vec3.sub(self.camera.pos, Vec3.mulScalar(self.camera.front, self.deltaTime));
             }
@@ -146,21 +151,54 @@ pub fn Game(CHUNK_SIZE: u32, windowWidth: u32, windowHeight: u32) type {
                 self.currentChunk = self.chunkMap.getPtr(iVec3.init(CHUNK_SIZE, 0, 0).add(self.currentChunk.pos)) orelse return error.what;
                 try self.moveChunks(unloaded, loaded);
             }
-            // if (pos.x() < chunkPos.x() - CHUNK_SIZE) {
-            //     for (0..unloaded.len) |i| {
-            //         unloaded[i] = iVec3.init(
-            //             chunkPos.x() + maxView / 2,
-            //             0,
-            //             chunkPos.z() + maxView / 2 - @as(i32, @intCast(i * CHUNK_SIZE)),
-            //         );
-            //         loaded[i] = iVec3.init(
-            //             chunkPos.x() - maxView / 2,
-            //             0,
-            //             chunkPos.z() + maxView / 2 + @as(i32, @intCast(i * CHUNK_SIZE)),
-            //         );
-            //     }
-            //     self.currentChunk = self.chunkMap.getPtr(iVec3.init(CHUNK_SIZE, 0, 0).add(self.currentChunk.pos)) orelse return error.what;
-            // }
+            if (pos.x() < chunkPos.x()) {
+                for (0..unloaded.len) |i| {
+                    unloaded[i] = iVec3.init(
+                        chunkPos.x() + maxView / 2,
+                        0,
+                        chunkPos.z() - maxView / 2 + @as(i32, @intCast(i * CHUNK_SIZE)),
+                    );
+                    loaded[i] = iVec3.init(
+                        chunkPos.x() - maxView / 2 - CHUNK_SIZE,
+                        0,
+                        chunkPos.z() - maxView / 2 + @as(i32, @intCast(i * CHUNK_SIZE)),
+                    );
+                }
+                self.currentChunk = self.chunkMap.getPtr(iVec3.init(-@as(i32, @intCast(CHUNK_SIZE)), 0, 0).add(self.currentChunk.pos)) orelse return error.what;
+                try self.moveChunks(unloaded, loaded);
+            }
+            if (pos.z() > chunkPos.z()) {
+                for (0..unloaded.len) |i| {
+                    unloaded[i] = iVec3.init(
+                        chunkPos.x() - maxView / 2 + @as(i32, @intCast(i * CHUNK_SIZE)),
+                        0,
+                        chunkPos.z() - maxView / 2,
+                    );
+                    loaded[i] = iVec3.init(
+                        chunkPos.x() - maxView / 2 + @as(i32, @intCast(i * CHUNK_SIZE)),
+                        0,
+                        chunkPos.z() + maxView / 2 + CHUNK_SIZE,
+                    );
+                }
+                self.currentChunk = self.chunkMap.getPtr(iVec3.init(0, 0, CHUNK_SIZE).add(self.currentChunk.pos)) orelse return error.what;
+                try self.moveChunks(unloaded, loaded);
+            }
+            if (pos.z() < chunkPos.z() - CHUNK_SIZE) {
+                for (0..unloaded.len) |i| {
+                    unloaded[i] = iVec3.init(
+                        chunkPos.x() - maxView / 2 + @as(i32, @intCast(i * CHUNK_SIZE)),
+                        0,
+                        chunkPos.z() + maxView / 2,
+                    );
+                    loaded[i] = iVec3.init(
+                        chunkPos.x() - maxView / 2 + @as(i32, @intCast(i * CHUNK_SIZE)),
+                        0,
+                        chunkPos.z() - maxView / 2 - CHUNK_SIZE,
+                    );
+                }
+                self.currentChunk = self.chunkMap.getPtr(iVec3.init(0, 0, -@as(i32, @intCast(CHUNK_SIZE))).add(self.currentChunk.pos)) orelse return error.what;
+                try self.moveChunks(unloaded, loaded);
+            }
         }
         fn moveChunks(self: *Self, unloaded: [VIEW_RANGE + 1]iVec3, loaded: [VIEW_RANGE + 1]iVec3) !void {
             var chunk: *_chunk.Chunk(CHUNK_SIZE) = undefined;
@@ -171,7 +209,7 @@ pub fn Game(CHUNK_SIZE: u32, windowWidth: u32, windowHeight: u32) type {
                 _ = self.chunkMap.remove(unloaded[i]);
                 const newChunk = try _chunk.Chunk(CHUNK_SIZE).init(loaded[i], self.allocator);
                 try self.chunkMap.put(loaded[i], newChunk);
-                std.debug.print("chunkPos: {any}, Ptr: {*}\n", .{ loaded[i], newChunk.blocks });
+                // std.debug.print("chunkPos: {any}, Ptr: {*}\n", .{ loaded[i], newChunk.blocks });
             }
         }
 
