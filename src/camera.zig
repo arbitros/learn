@@ -89,7 +89,7 @@ pub fn Camera(windowWidth: u32, windowHeight: u32) type {
         pub fn lookAt(pos: Vec3, objPos: Vec3) Mat4 {
             const front = Vec3.norm(objPos.sub(pos)); //camera vectors
             const right = Vec3.norm(Vec3.cross(GLOBAL_UP, front));
-            const up = Vec3.norm(Vec3.cross(right, front));
+            const up = Vec3.norm(Vec3.cross(front, right));
 
             const cameraSpace = zlm.Mat4x4.init(
                 zlm.Vec4.init(right.x(), right.y(), right.z(), 0.0),
@@ -148,14 +148,16 @@ pub fn Camera(windowWidth: u32, windowHeight: u32) type {
 
         pub fn updateCameraVectors(self: *Self) void {
             const front = Vec3.init(
-                math.cos(math.degreesToRadians(self.yaw)) * math.cos(math.degreesToRadians(self.pitch)),
-                math.sin(math.degreesToRadians(self.pitch)),
-                math.sin(math.degreesToRadians(self.yaw)) * math.cos(math.degreesToRadians(self.pitch)),
+                math.cos(math.degreesToRadians(self.yaw)) * math.cos(math.degreesToRadians(-self.pitch)),
+                math.sin(math.degreesToRadians(-self.pitch)),
+                math.sin(math.degreesToRadians(self.yaw)) * math.cos(math.degreesToRadians(-self.pitch)),
             );
 
             self.front = front.norm();
             self.right = Vec3.norm(self.front.cross(GLOBAL_UP));
             self.up = Vec3.norm(self.right.cross(self.front));
+
+            // std.debug.print("camPos: {any}\n", .{self.pos});
         }
     };
 }

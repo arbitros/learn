@@ -106,4 +106,5 @@ test {
     _ = @import("matrix_util.zig");
     _ = @import("game.zig");
     _ = @import("glfw");
+    _ = @import("perlin.zig");
 }

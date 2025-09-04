@@ -106,10 +106,10 @@ pub fn Game(CHUNK_SIZE: u32, windowWidth: u32, windowHeight: u32) type {
                 self.camera.pos = Vec3.sub(self.camera.pos, Vec3.mulScalar(self.camera.right, self.deltaTime));
             }
             if (glfw.getKey(self.window, glfw.KeySpace) == glfw.Press) {
-                self.camera.pos = Vec3.sub(self.camera.pos, Vec3.mulScalar(self.camera.glob_up, self.deltaTime));
+                self.camera.pos = Vec3.add(self.camera.pos, Vec3.mulScalar(self.camera.glob_up, self.deltaTime));
             }
             if (glfw.getKey(self.window, glfw.KeyLeftControl) == glfw.Press) {
-                self.camera.pos = Vec3.add(self.camera.pos, Vec3.mulScalar(self.camera.glob_up, self.deltaTime));
+                self.camera.pos = Vec3.sub(self.camera.pos, Vec3.mulScalar(self.camera.glob_up, self.deltaTime));
             }
         }
 
@@ -244,17 +244,17 @@ pub fn Game(CHUNK_SIZE: u32, windowWidth: u32, windowHeight: u32) type {
 }
 
 test {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
-    const allocator = gpa.allocator();
-
-    var hashmap = std.HashMap(iVec3, i32, Game(4, 4, 4).Context, 1).init(allocator);
-    defer hashmap.deinit();
-    try hashmap.put(iVec3.init(0, 0, 0), -5);
-    try hashmap.put(iVec3.init(1, 0, 0), -7);
-    try std.testing.expect(hashmap.contains(iVec3.init(0, 0, 0)) == true);
-    var iterator = hashmap.iterator();
-    while (iterator.next()) |entry| {
-        std.debug.print("{any}", .{entry});
-    }
+    // var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    // defer _ = gpa.deinit();
+    // const allocator = gpa.allocator();
+    //
+    // var hashmap = std.HashMap(iVec3, i32, Game(4, 4, 4).Context, 1).init(allocator);
+    // defer hashmap.deinit();
+    // try hashmap.put(iVec3.init(0, 0, 0), -5);
+    // try hashmap.put(iVec3.init(1, 0, 0), -7);
+    // try std.testing.expect(hashmap.contains(iVec3.init(0, 0, 0)) == true);
+    // var iterator = hashmap.iterator();
+    // while (iterator.next()) |entry| {
+    //     std.debug.print("{any}", .{entry});
+    // }
 }

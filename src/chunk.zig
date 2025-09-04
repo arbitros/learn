@@ -2,8 +2,11 @@ const std = @import("std");
 const zlm = @import("zig_matrix");
 const gl = @import("gl");
 const _shader = @import("shader.zig");
+const _perlin = @import("perlin.zig");
+
 const Vec3 = zlm.Vec3;
 const iVec3 = zlm.GenericVector(3, i32);
+const iVec2 = zlm.GenericVector(2, i32);
 
 pub fn Chunk(CHUNK_SIZE: u32) type {
     const normals: [6]Vec3 = .{
@@ -43,12 +46,50 @@ pub fn Chunk(CHUNK_SIZE: u32) type {
 
         pub fn init(pos: iVec3, allocator: std.mem.Allocator) !Self {
             const blocks = try allocator.alloc(u8, MAX_BLOCKS);
-            @memset(blocks, 0);
+            // const perlin = _perlin.Perlin(CHUNK_SIZE);
+            // const perlArr = perlin.generate(iVec2.init(pos.x(), pos.y()), CHUNK_SIZE * 2);
+            // for (0..CHUNK_SIZE) |i| {
+            //     for (0..CHUNK_SIZE) |j| {
+            //         for (0..CHUNK_SIZE) |k| { //PROBLEM::: HAS TF DO I DETERMINE HEIGHT???
+            //             const idx = i * CHUNK_SIZE * CHUNK_SIZE + j * CHUNK_SIZE + k;
+            //             if (@as(f32, @floatFromInt(j)) <= perlArr[j * CHUNK_SIZE + k]) blocks[idx] = 1;
+            //         }
+            //     }
+            // }
+
+            var prng = std.Random.DefaultPrng.init(@intCast(std.time.nanoTimestamp()));
+            const rand = prng.random();
+
+            var noise: [CHUNK_SIZE * CHUNK_SIZE]f32 = undefined;
+
+            for (0..CHUNK_SIZE) |i| {
+                for (0..CHUNK_SIZE) |j| {
+                    noise[i * CHUNK_SIZE + j] = (rand.float(f32) + 1) * 5;
+                }
+            }
+
+            for (0..CHUNK_SIZE) |i| {
+                for (0..CHUNK_SIZE) |j| {
+                    for (0..CHUNK_SIZE) |k| {
+                        const idx = i * CHUNK_SIZE * CHUNK_SIZE + j * CHUNK_SIZE + k;
+                        if (@as(f32, @floatFromInt(j)) <= noise[i * CHUNK_SIZE + k]) blocks[idx] = 1;
+                    }
+                }
+            }
+
             const panels = try allocator.alloc(u8, 6 * MAX_BLOCKS); //Note, flat array, arr[p*MAX_BLOCKS + b] = arr[p][b]
             @memset(panels, 0);
 
-            for (0..6) |i| {
-                panels[i * MAX_BLOCKS + 0] = 1;
+            for (0..MAX_BLOCKS) |i| {
+                if (blocks[i] == 1) {
+                    for (0..6) |j| {
+                        panels[j * MAX_BLOCKS + i] = 1;
+                    }
+                } else {
+                    for (0..6) |j| {
+                        panels[j * MAX_BLOCKS + i] = 0;
+                    }
+                }
             }
 
             var blockInfo: [6]c_uint = undefined;
@@ -67,7 +108,7 @@ pub fn Chunk(CHUNK_SIZE: u32) type {
                     0,
                     gl.RED_INTEGER,
                     gl.UNSIGNED_BYTE,
-                    @ptrCast(panels),
+                    if (i < 4) @ptrCast(panels[i * MAX_BLOCKS .. (i + 1) * MAX_BLOCKS]) else panels[5 * MAX_BLOCKS .. 6 * MAX_BLOCKS - 1],
                 );
                 gl.TexParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
                 gl.TexParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
@@ -99,11 +140,10 @@ pub fn Chunk(CHUNK_SIZE: u32) type {
         pub fn draw(self: Self, VAOs: [6]c_uint, shader: _shader.ShaderProgram()) void {
             for (0..6) |i| {
                 shader.setVec3(normals[i], "normal");
-                const unit = @as(c_uint, @intCast(i));
                 gl.BindVertexArray(VAOs[i]);
-                gl.ActiveTexture(gl.TEXTURE0 + unit);
+                gl.ActiveTexture(gl.TEXTURE0);
                 gl.BindTexture(gl.TEXTURE_3D, self.blockInfo[i]);
-                shader.setInt(gl.TEXTURE0 + unit, "chunkData");
+                shader.setInt(gl.TEXTURE0, "chunkData");
                 shader.setiVec3(self.pos, "chunkPos");
                 gl.DrawElementsInstanced(gl.TRIANGLES, 6, gl.UNSIGNED_INT, null, @intCast(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE));
             }
