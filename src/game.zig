@@ -12,11 +12,15 @@ const iVec3 = zlm.GenericVector(3, i32);
 
 pub fn Game(CHUNK_SIZE: u32, VIEW_RANGE: u32, windowWidth: u32, windowHeight: u32) type {
     const ChunkMap = std.HashMap(iVec3, _chunk.Chunk(CHUNK_SIZE), _chunk.Chunk(CHUNK_SIZE).Context, 1);
+    const WALK_SPEED = 0.025;
 
     return struct {
         window: ?*glfw.Window,
         camera: _camera.Camera(windowWidth, windowHeight),
-        deltaTime: f32,
+        walkSpeed: f32,
+        lastFrameTime: i64,
+        deltaTimeI: i64,
+        deltaTimeF: f32,
         currentShader: _shader.ShaderProgram(),
         currentChunk: *_chunk.Chunk(CHUNK_SIZE),
         VAOs: [6]c_uint,
@@ -65,7 +69,10 @@ pub fn Game(CHUNK_SIZE: u32, VIEW_RANGE: u32, windowWidth: u32, windowHeight: u3
             return Self{
                 .camera = camera,
                 .window = window,
-                .deltaTime = 0.06,
+                .walkSpeed = WALK_SPEED,
+                .lastFrameTime = std.time.milliTimestamp(),
+                .deltaTimeI = 0,
+                .deltaTimeF = 0,
                 .currentShader = shader,
                 .currentChunk = chunkMap.getPtr(iVec3.init(0, 0, 0)) orelse return error.NoChunk,
                 .VAOs = undefined,
@@ -88,31 +95,36 @@ pub fn Game(CHUNK_SIZE: u32, VIEW_RANGE: u32, windowWidth: u32, windowHeight: u3
         }
         pub fn keyboardWalk(self: *Self) void {
             if (glfw.getKey(self.window, glfw.KeyLeftShift) == glfw.Press) {
-                self.deltaTime = 0.12;
+                self.walkSpeed = WALK_SPEED * 2;
             } else {
-                self.deltaTime = 0.06;
+                self.walkSpeed = WALK_SPEED;
             }
             if (glfw.getKey(self.window, glfw.KeyW) == glfw.Press) {
-                self.camera.pos = Vec3.sub(self.camera.pos, Vec3.mulScalar(self.camera.front, self.deltaTime));
+                self.camera.pos = Vec3.sub(self.camera.pos, Vec3.mulScalar(self.camera.front, self.deltaTimeF * self.walkSpeed));
             }
             if (glfw.getKey(self.window, glfw.KeyS) == glfw.Press) {
-                self.camera.pos = Vec3.add(self.camera.pos, Vec3.mulScalar(self.camera.front, self.deltaTime));
+                self.camera.pos = Vec3.add(self.camera.pos, Vec3.mulScalar(self.camera.front, self.deltaTimeF * self.walkSpeed));
             }
             if (glfw.getKey(self.window, glfw.KeyA) == glfw.Press) {
-                self.camera.pos = Vec3.add(self.camera.pos, Vec3.mulScalar(self.camera.right, self.deltaTime));
+                self.camera.pos = Vec3.add(self.camera.pos, Vec3.mulScalar(self.camera.right, self.deltaTimeF * self.walkSpeed));
             }
             if (glfw.getKey(self.window, glfw.KeyD) == glfw.Press) {
-                self.camera.pos = Vec3.sub(self.camera.pos, Vec3.mulScalar(self.camera.right, self.deltaTime));
+                self.camera.pos = Vec3.sub(self.camera.pos, Vec3.mulScalar(self.camera.right, self.deltaTimeF * self.walkSpeed));
             }
             if (glfw.getKey(self.window, glfw.KeySpace) == glfw.Press) {
-                self.camera.pos = Vec3.add(self.camera.pos, Vec3.mulScalar(self.camera.glob_up, self.deltaTime));
+                self.camera.pos = Vec3.add(self.camera.pos, Vec3.mulScalar(self.camera.glob_up, self.deltaTimeF * self.walkSpeed));
             }
             if (glfw.getKey(self.window, glfw.KeyLeftControl) == glfw.Press) {
-                self.camera.pos = Vec3.sub(self.camera.pos, Vec3.mulScalar(self.camera.glob_up, self.deltaTime));
+                self.camera.pos = Vec3.sub(self.camera.pos, Vec3.mulScalar(self.camera.glob_up, self.deltaTimeF * self.walkSpeed));
             }
         }
 
         pub fn update(self: *Self) !void {
+            const current_time = std.time.milliTimestamp();
+            self.deltaTimeI = current_time - self.lastFrameTime;
+            self.lastFrameTime = current_time;
+            self.deltaTimeF = @as(f32, @floatFromInt(self.deltaTimeI));
+
             self.keyboardWalk();
             processInput(self.window);
             glfw.getCursorPos(self.window, &self.camera.mouseVar.xpos, &self.camera.mouseVar.ypos);
@@ -126,7 +138,7 @@ pub fn Game(CHUNK_SIZE: u32, VIEW_RANGE: u32, windowWidth: u32, windowHeight: u3
             try self.chunkLoading();
         }
 
-        pub fn chunkLoading(self: *Self) !void { // works one direction, memory leaks!!
+        pub fn chunkLoading(self: *Self) !void {
             const pos = self.camera.coordPos;
             const chunkPos = self.currentChunk.pos;
             const maxView: i32 = VIEW_RANGE * CHUNK_SIZE;

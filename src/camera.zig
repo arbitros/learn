@@ -54,7 +54,7 @@ pub fn Camera(windowWidth: u32, windowHeight: u32) type {
                 const b = -t;
                 const r = t * aspect;
                 const l = -r;
-                const f = 300;
+                const f = 1280;
                 const projmat = zlm.Mat4x4.init(
                     zlm.Vec4.init(2 * n / (r - l), 0, (r + l) / (r - l), 0),
                     zlm.Vec4.init(0, 2 * n / (t - b), (t + b) / (t - b), 0),

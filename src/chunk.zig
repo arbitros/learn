@@ -53,6 +53,7 @@ pub fn Chunk(CHUNK_SIZE: u32) type {
 
         pub fn init(pos: iVec3, chunkMap: anytype, allocator: std.mem.Allocator) !Self {
             const blocks = try allocator.alloc(u8, MAX_BLOCKS);
+            @memset(blocks, 0);
 
             const zone = Context.hashNo(pos);
             var prng = std.Random.DefaultPrng.init(zone);
@@ -109,7 +110,7 @@ pub fn Chunk(CHUNK_SIZE: u32) type {
             const perlin = _perlin.Perlin(CHUNK_SIZE);
             const simpleArr = perlin.generateSimple(corners);
 
-            for (0..CHUNK_SIZE) |i| {
+            for (0..CHUNK_SIZE) |i| { //ADD BACK
                 for (0..CHUNK_SIZE) |j| {
                     for (0..CHUNK_SIZE) |k| {
                         const idx = i * CHUNK_SIZE * CHUNK_SIZE + j * CHUNK_SIZE + k;
@@ -133,6 +134,8 @@ pub fn Chunk(CHUNK_SIZE: u32) type {
                 }
             }
 
+            Self.determinePanels(pos, blocks, panels, chunkMap);
+
             var blockInfo: [6]c_uint = undefined;
 
             gl.PixelStorei(gl.UNPACK_ALIGNMENT, 1);
@@ -149,7 +152,7 @@ pub fn Chunk(CHUNK_SIZE: u32) type {
                     0,
                     gl.RED_INTEGER,
                     gl.UNSIGNED_BYTE,
-                    if (i < 4) @ptrCast(panels[i * MAX_BLOCKS .. (i + 1) * MAX_BLOCKS]) else panels[5 * MAX_BLOCKS .. 6 * MAX_BLOCKS - 1],
+                    if (i < 6) @ptrCast(panels[i * MAX_BLOCKS .. (i + 1) * MAX_BLOCKS]) else panels[5 * MAX_BLOCKS .. 6 * MAX_BLOCKS - 1],
                 );
                 gl.TexParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
                 gl.TexParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
@@ -182,10 +185,38 @@ pub fn Chunk(CHUNK_SIZE: u32) type {
                 for (0..wid) |j| {
                     for (0..wid) |k| {
                         const idx = wid * wid * i + wid * j + k;
-                        if (k < CHUNK_SIZE - 1) { //zn
+                        if (k < CHUNK_SIZE - 1) {
                             if (blocks[idx + 1] != 0) {
+                                panels[3 * MAX_BLOCKS + idx] = 0;
+                            }
+                        }
+                        if (k != 0) {
+                            if (blocks[idx - 1] != 0) {
+                                panels[2 * MAX_BLOCKS + idx] = 0;
+                            }
+                        }
+                        if (i < CHUNK_SIZE - 1) {
+                            if (blocks[idx + wid * wid] != 0) {
                                 panels[1 * MAX_BLOCKS + idx] = 0;
                             }
+                        }
+                        if (i != 0) {
+                            if (blocks[idx - wid * wid] != 0) {
+                                panels[0 * MAX_BLOCKS + idx] = 0;
+                            }
+                        }
+                        if (j < CHUNK_SIZE - 1) {
+                            if (blocks[idx + wid] != 0) {
+                                panels[5 * MAX_BLOCKS + idx] = 0;
+                            }
+                        }
+                        if (j != 0) {
+                            if (blocks[idx - wid] != 0) {
+                                panels[4 * MAX_BLOCKS + idx] = 0;
+                            }
+                        }
+                        if (j == 0) {
+                            panels[4 * MAX_BLOCKS + idx] = 0;
                         }
                     }
                 }

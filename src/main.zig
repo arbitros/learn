@@ -16,8 +16,8 @@ const WindowSize = struct {
     pub const height: u32 = 1000;
 };
 
-const CHUNK_SIZE = 16;
-const VIEW_RANGE = 8;
+const CHUNK_SIZE = 32;
+const VIEW_RANGE = 20;
 const MAX_BLOCKS = math.powi(u32, CHUNK_SIZE, 3);
 
 pub fn main() !void {
@@ -63,6 +63,8 @@ pub fn main() !void {
     var VBO: c_uint = undefined;
     var VAOs: [6]c_uint = undefined;
     var EBOs: [6]c_uint = undefined;
+
+    // gl.PolygonMode(gl.FRONT_AND_BACK, gl.LINE);
 
     gl.GenBuffers(1, @ptrCast(&VBO));
     defer gl.DeleteBuffers(1, @ptrCast(&VBO));
