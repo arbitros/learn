@@ -10,9 +10,8 @@ const Vec3 = zlm.Vec3;
 const Mat4 = zlm.Mat4x4;
 const iVec3 = zlm.GenericVector(3, i32);
 
-pub fn Game(CHUNK_SIZE: u32, windowWidth: u32, windowHeight: u32) type {
+pub fn Game(CHUNK_SIZE: u32, VIEW_RANGE: u32, windowWidth: u32, windowHeight: u32) type {
     const ChunkMap = std.HashMap(iVec3, _chunk.Chunk(CHUNK_SIZE), _chunk.Chunk(CHUNK_SIZE).Context, 1);
-    const VIEW_RANGE: u32 = 20;
 
     return struct {
         window: ?*glfw.Window,
@@ -43,7 +42,7 @@ pub fn Game(CHUNK_SIZE: u32, windowWidth: u32, windowHeight: u32) type {
             shader.setMat4(zlm.Mat4x4.identity(), "model");
 
             var chunkMap = ChunkMap.init(allocator);
-            const chunkOrg = try _chunk.Chunk(CHUNK_SIZE).init(iVec3.init(0, 0, 0), allocator);
+            const chunkOrg = try _chunk.Chunk(CHUNK_SIZE).init(iVec3.init(0, 0, 0), &chunkMap, allocator);
             try chunkMap.put(chunkOrg.pos, chunkOrg);
 
             var i: i32 = -@as(i32, @intCast(VIEW_RANGE / 2));
@@ -56,7 +55,7 @@ pub fn Game(CHUNK_SIZE: u32, windowWidth: u32, windowHeight: u32) type {
                         @as(i32, @intCast(CHUNK_SIZE)) * i,
                         0,
                         @as(i32, @intCast(CHUNK_SIZE)) * j,
-                    ), allocator);
+                    ), &chunkMap, allocator);
                     try chunkMap.put(chunk.pos, chunk);
                     // std.debug.print("Vec: {any}, Ptr: {*}\n", .{ chunk.pos, chunk.blocks });
                 }
@@ -207,7 +206,7 @@ pub fn Game(CHUNK_SIZE: u32, windowWidth: u32, windowHeight: u32) type {
                 // std.debug.print("chunkPos: {any}, Ptr: {*}\n", .{ unloaded[i], chunk.blocks });
                 chunk.deinit();
                 _ = self.chunkMap.remove(unloaded[i]);
-                const newChunk = try _chunk.Chunk(CHUNK_SIZE).init(loaded[i], self.allocator);
+                const newChunk = try _chunk.Chunk(CHUNK_SIZE).init(loaded[i], self.chunkMap, self.allocator);
                 try self.chunkMap.put(loaded[i], newChunk);
                 // std.debug.print("chunkPos: {any}, Ptr: {*}\n", .{ loaded[i], newChunk.blocks });
             }

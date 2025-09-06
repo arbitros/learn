@@ -17,6 +17,7 @@ const WindowSize = struct {
 };
 
 const CHUNK_SIZE = 16;
+const VIEW_RANGE = 8;
 const MAX_BLOCKS = math.powi(u32, CHUNK_SIZE, 3);
 
 pub fn main() !void {
@@ -35,7 +36,7 @@ pub fn main() !void {
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
-    var game = try _game.Game(CHUNK_SIZE, WindowSize.width, WindowSize.height).init(90, Vec3.init(0, 0, 0), Vec3.init(0, 0, 0), window, allocator);
+    var game = try _game.Game(CHUNK_SIZE, VIEW_RANGE, WindowSize.width, WindowSize.height).init(90, Vec3.init(0, 0, 0), Vec3.init(0, 0, 0), window, allocator);
     defer game.deinit();
 
     const vertices = [5 * 8]f32{

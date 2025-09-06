@@ -98,6 +98,34 @@ pub fn Perlin(chunkSize: u32) type {
 
             return array;
         }
+        pub fn generateSimple(corners: [4]f32) [gridSize]f32 {
+            // var testcorners = corners;
+            // testcorners[2] = -1;
+            var sides: [2][chunkSize]f32 = undefined;
+            for (0..2) |i| {
+                const a = corners[i * 2];
+                const b = corners[i * 2 + 1];
+                for (0..chunkSize) |j| {
+                    const t: f32 = @as(f32, @floatFromInt(j)) / @as(f32, @floatFromInt(chunkSize));
+
+                    sides[i][j] = interpolate(a, b, t);
+                }
+            }
+            // print("{any}", .{sides});
+            var grid: [gridSize]f32 = undefined;
+
+            for (0..chunkSize) |i| {
+                const a = sides[0][i];
+                const b = sides[1][i];
+                for (0..chunkSize) |j| {
+                    const t: f32 = @as(f32, @floatFromInt(j)) / @as(f32, @floatFromInt(chunkSize));
+                    grid[i * chunkSize + j] = interpolate(a, b, t);
+                }
+            }
+            // print("{any}", .{grid});
+            return grid;
+        }
+
         fn smoothstep(tIn: f32) f32 {
             const t = @max(0, @min(1, tIn));
             return t * t * (3 - 2 * t);

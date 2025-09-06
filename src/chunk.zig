@@ -23,6 +23,7 @@ pub fn Chunk(CHUNK_SIZE: u32) type {
         // 0: air, 1: solid, 2: targeted
         panels: []u8, //MAX_BLOCKS*6
         blocks: []u8, //MAX_BLOCKS
+        corners: [4]f32,
         blockInfo: [6]c_uint,
         pos: iVec3,
         playerPresent: bool,
@@ -38,41 +39,81 @@ pub fn Chunk(CHUNK_SIZE: u32) type {
                 const z: u64 = if (key.z() < 0) 0xFFFFFFFFFF - @divFloor(@as(u32, @intCast(-key.z())), @as(u64, @intCast(CHUNK_SIZE))) else @intCast(key.z());
                 return @as(u64, @intCast(100 * x + 10 * y + z));
             }
+            pub fn hashNo(key: iVec3) u64 {
+                const y: u64 = if (key.y() < 0) @as(u64, @intCast(-key.y())) + CHUNK_SIZE + 2 else @as(u64, @intCast(key.y()));
+                const x: u64 = if (key.x() < 0) 0xFFFFFFFFFF - @divFloor(@as(u32, @intCast(-key.x())), @as(u64, @intCast(CHUNK_SIZE))) else @intCast(key.x());
+                const z: u64 = if (key.z() < 0) 0xFFFFFFFFFF - @divFloor(@as(u32, @intCast(-key.z())), @as(u64, @intCast(CHUNK_SIZE))) else @intCast(key.z());
+                return @as(u64, @intCast(100 * x + 10 * y + z));
+            }
             pub fn eql(self: @This(), key1: iVec3, key2: iVec3) bool {
                 _ = self;
                 return iVec3.eql(key1, key2);
             }
         };
 
-        pub fn init(pos: iVec3, allocator: std.mem.Allocator) !Self {
+        pub fn init(pos: iVec3, chunkMap: anytype, allocator: std.mem.Allocator) !Self {
             const blocks = try allocator.alloc(u8, MAX_BLOCKS);
-            // const perlin = _perlin.Perlin(CHUNK_SIZE);
-            // const perlArr = perlin.generate(iVec2.init(pos.x(), pos.y()), CHUNK_SIZE * 2);
-            // for (0..CHUNK_SIZE) |i| {
-            //     for (0..CHUNK_SIZE) |j| {
-            //         for (0..CHUNK_SIZE) |k| { //PROBLEM::: HAS TF DO I DETERMINE HEIGHT???
-            //             const idx = i * CHUNK_SIZE * CHUNK_SIZE + j * CHUNK_SIZE + k;
-            //             if (@as(f32, @floatFromInt(j)) <= perlArr[j * CHUNK_SIZE + k]) blocks[idx] = 1;
-            //         }
-            //     }
-            // }
 
-            var prng = std.Random.DefaultPrng.init(@intCast(std.time.nanoTimestamp()));
+            const zone = Context.hashNo(pos);
+            var prng = std.Random.DefaultPrng.init(zone);
             const rand = prng.random();
 
-            var noise: [CHUNK_SIZE * CHUNK_SIZE]f32 = undefined;
+            var corners: [4]f32 = .{
+                (rand.float(f32) + 1) * CHUNK_SIZE / 2 - 1,
+                (rand.float(f32) + 1) * CHUNK_SIZE / 2 - 1,
+                (rand.float(f32) + 1) * CHUNK_SIZE / 2 - 1,
+                (rand.float(f32) + 1) * CHUNK_SIZE / 2 - 1,
+            };
+            // std.debug.print("pos: {any} cornersInit: {any}\n", .{ pos, corners });
 
-            for (0..CHUNK_SIZE) |i| {
-                for (0..CHUNK_SIZE) |j| {
-                    noise[i * CHUNK_SIZE + j] = (rand.float(f32) + 1) * 5;
-                }
+            var chunk = chunkMap.getPtr(pos.sub(iVec3.init(0, 0, CHUNK_SIZE)));
+            if (chunk) |chunkPtr| {
+                corners[0] = chunkPtr.corners[1];
+                corners[2] = chunkPtr.corners[3];
             }
+            chunk = chunkMap.getPtr(pos.add(iVec3.init(0, 0, CHUNK_SIZE)));
+            if (chunk) |chunkPtr| {
+                corners[1] = chunkPtr.corners[0];
+                corners[3] = chunkPtr.corners[2];
+            }
+
+            chunk = chunkMap.getPtr(pos.sub(iVec3.init(CHUNK_SIZE, 0, 0)));
+            if (chunk) |chunkPtr| {
+                corners[0] = chunkPtr.corners[2];
+                corners[1] = chunkPtr.corners[3];
+            }
+            chunk = chunkMap.getPtr(pos.add(iVec3.init(CHUNK_SIZE, 0, 0)));
+            if (chunk) |chunkPtr| {
+                corners[3] = chunkPtr.corners[1];
+                corners[2] = chunkPtr.corners[0];
+            }
+
+            chunk = chunkMap.getPtr(pos.sub(iVec3.init(CHUNK_SIZE, 0, CHUNK_SIZE)));
+            if (chunk) |chunkPtr| {
+                corners[0] = chunkPtr.corners[3];
+            }
+            chunk = chunkMap.getPtr(pos.add(iVec3.init(CHUNK_SIZE, 0, CHUNK_SIZE)));
+            if (chunk) |chunkPtr| {
+                corners[3] = chunkPtr.corners[0];
+            }
+            chunk = chunkMap.getPtr(pos.add(iVec3.init(-@as(i32, CHUNK_SIZE), 0, CHUNK_SIZE)));
+            if (chunk) |chunkPtr| {
+                corners[1] = chunkPtr.corners[2];
+            }
+            chunk = chunkMap.getPtr(pos.add(iVec3.init(CHUNK_SIZE, 0, -@as(i32, CHUNK_SIZE))));
+            if (chunk) |chunkPtr| {
+                corners[2] = chunkPtr.corners[1];
+            }
+            // std.debug.print("corners: {any}\n", .{corners});
+
+            const perlin = _perlin.Perlin(CHUNK_SIZE);
+            const simpleArr = perlin.generateSimple(corners);
 
             for (0..CHUNK_SIZE) |i| {
                 for (0..CHUNK_SIZE) |j| {
                     for (0..CHUNK_SIZE) |k| {
                         const idx = i * CHUNK_SIZE * CHUNK_SIZE + j * CHUNK_SIZE + k;
-                        if (@as(f32, @floatFromInt(j)) <= noise[i * CHUNK_SIZE + k]) blocks[idx] = 1;
+                        if (@as(f32, @floatFromInt(j)) <= simpleArr[i * CHUNK_SIZE + k]) blocks[idx] = 1;
                     }
                 }
             }
@@ -121,6 +162,7 @@ pub fn Chunk(CHUNK_SIZE: u32) type {
                 .panels = panels,
                 .blocks = blocks,
                 .blockInfo = blockInfo,
+                .corners = corners,
                 .pos = pos,
                 .playerPresent = true,
                 .allocator = allocator,
@@ -130,11 +172,24 @@ pub fn Chunk(CHUNK_SIZE: u32) type {
             self.allocator.free(self.panels);
             self.allocator.free(self.blocks);
         }
-        pub fn determinePanels(self: Self) void {
-            _ = self;
-            // for (0..MAX_BLOCKS) |i| {
-            //     if (blocks[i] == )
-            // }
+        pub fn determinePanels(pos: iVec3, blocks: []u8, panels: []u8, chunkMap: anytype) void {
+            const wid = CHUNK_SIZE;
+            const chunkZN = chunkMap.getPtr(pos.sub(iVec3.init(0, 0, wid)));
+            const chunkZP = chunkMap.getPtr(pos.add(iVec3.init(0, 0, wid)));
+            _ = chunkZN;
+            _ = chunkZP;
+            for (0..wid) |i| {
+                for (0..wid) |j| {
+                    for (0..wid) |k| {
+                        const idx = wid * wid * i + wid * j + k;
+                        if (k < CHUNK_SIZE - 1) { //zn
+                            if (blocks[idx + 1] != 0) {
+                                panels[1 * MAX_BLOCKS + idx] = 0;
+                            }
+                        }
+                    }
+                }
+            }
         }
         pub fn update() void {}
         pub fn draw(self: Self, VAOs: [6]c_uint, shader: _shader.ShaderProgram()) void {
