@@ -13,6 +13,8 @@ out vec4 FragColor;
 void main() {
     float ambientStrength = 0.1;
     vec3 ambient = ambientStrength * lightColor;
+
+    vec3 objectColor = normal;
   	
     vec3 norm = normalize(normal);
     vec3 lightDir = normalize(lightPos - fragPos);

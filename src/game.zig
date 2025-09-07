@@ -10,6 +10,8 @@ const Vec3 = zlm.Vec3;
 const Mat4 = zlm.Mat4x4;
 const iVec3 = zlm.GenericVector(3, i32);
 
+var bs = true;
+
 pub fn Game(CHUNK_SIZE: u32, VIEW_RANGE: u32, windowWidth: u32, windowHeight: u32) type {
     const ChunkMap = std.HashMap(iVec3, _chunk.Chunk(CHUNK_SIZE), _chunk.Chunk(CHUNK_SIZE).Context, 1);
     const WALK_SPEED = 0.025;
@@ -136,6 +138,13 @@ pub fn Game(CHUNK_SIZE: u32, VIEW_RANGE: u32, windowWidth: u32, windowHeight: u3
                 @as(i32, @intFromFloat(self.camera.pos.z())),
             );
             try self.chunkLoading();
+
+            var iterator = self.chunkMap.iterator();
+            while (iterator.next()) |entry| { //cant mutate panels
+                var chunk = entry.value_ptr;
+                chunk.determinePanels(self.chunkMap);
+                chunk.update();
+            }
         }
 
         pub fn chunkLoading(self: *Self) !void {

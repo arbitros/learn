@@ -16,8 +16,8 @@ const WindowSize = struct {
     pub const height: u32 = 1000;
 };
 
-const CHUNK_SIZE = 32;
-const VIEW_RANGE = 20;
+const CHUNK_SIZE = 16;
+const VIEW_RANGE = 4;
 const MAX_BLOCKS = math.powi(u32, CHUNK_SIZE, 3);
 
 pub fn main() !void {

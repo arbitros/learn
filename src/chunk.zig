@@ -27,6 +27,7 @@ pub fn Chunk(CHUNK_SIZE: u32) type {
         blockInfo: [6]c_uint,
         pos: iVec3,
         playerPresent: bool,
+        changed: bool,
         allocator: std.mem.Allocator,
 
         const Self = @This();
@@ -134,8 +135,6 @@ pub fn Chunk(CHUNK_SIZE: u32) type {
                 }
             }
 
-            Self.determinePanels(pos, blocks, panels, chunkMap);
-
             var blockInfo: [6]c_uint = undefined;
 
             gl.PixelStorei(gl.UNPACK_ALIGNMENT, 1);
@@ -168,19 +167,42 @@ pub fn Chunk(CHUNK_SIZE: u32) type {
                 .corners = corners,
                 .pos = pos,
                 .playerPresent = true,
+                .changed = false,
                 .allocator = allocator,
             };
+        }
+
+        pub fn updateSample3D(self: *Self) void {
+            const blockInfo = self.blockInfo;
+            const panels = self.panels;
+
+            gl.PixelStorei(gl.UNPACK_ALIGNMENT, 1);
+            for (0..6) |i| {
+                gl.BindTexture(gl.TEXTURE_3D, blockInfo[i]);
+                gl.TexImage3D(
+                    gl.TEXTURE_3D,
+                    0,
+                    gl.R8UI,
+                    CHUNK_SIZE,
+                    CHUNK_SIZE,
+                    CHUNK_SIZE,
+                    0,
+                    gl.RED_INTEGER,
+                    gl.UNSIGNED_BYTE,
+                    if (i < 6) @ptrCast(panels[i * MAX_BLOCKS .. (i + 1) * MAX_BLOCKS]) else panels[5 * MAX_BLOCKS .. 6 * MAX_BLOCKS - 1],
+                );
+            }
         }
         pub fn deinit(self: Self) void {
             self.allocator.free(self.panels);
             self.allocator.free(self.blocks);
         }
-        pub fn determinePanels(pos: iVec3, blocks: []u8, panels: []u8, chunkMap: anytype) void {
+        pub fn determinePanels(self: *Self, chunkMap: anytype) void { //a bit performance boost: remove chunk edges at edges
+            const panels = self.panels;
+            const blocks = self.blocks;
+            const pos = self.pos;
             const wid = CHUNK_SIZE;
-            const chunkZN = chunkMap.getPtr(pos.sub(iVec3.init(0, 0, wid)));
-            const chunkZP = chunkMap.getPtr(pos.add(iVec3.init(0, 0, wid)));
-            _ = chunkZN;
-            _ = chunkZP;
+
             for (0..wid) |i| {
                 for (0..wid) |j| {
                     for (0..wid) |k| {
@@ -189,22 +211,41 @@ pub fn Chunk(CHUNK_SIZE: u32) type {
                             if (blocks[idx + 1] != 0) {
                                 panels[3 * MAX_BLOCKS + idx] = 0;
                             }
+                        } else if (chunkMap.getPtr(pos.add(iVec3.init(wid, 0, 0)))) |chunkXN| {
+                            if (chunkXN.blocks[wid * wid * i + wid * j + 0] != 0) {
+                                panels[3 * MAX_BLOCKS + idx] = 0;
+                            }
                         }
                         if (k != 0) {
                             if (blocks[idx - 1] != 0) {
                                 panels[2 * MAX_BLOCKS + idx] = 0;
                             }
+                        } else if (chunkMap.getPtr(pos.sub(iVec3.init(wid, 0, 0)))) |chunkXP| {
+                            if (chunkXP.blocks[wid * wid * i + wid * j + wid - 1] != 0) {
+                                panels[2 * MAX_BLOCKS + idx] = 0;
+                            }
                         }
+
                         if (i < CHUNK_SIZE - 1) {
                             if (blocks[idx + wid * wid] != 0) {
                                 panels[1 * MAX_BLOCKS + idx] = 0;
                             }
+                        } else if (chunkMap.getPtr(pos.add(iVec3.init(0, 0, wid)))) |chunkZN| {
+                            if (chunkZN.blocks[0 + wid * j + k] != 0) {
+                                panels[1 * MAX_BLOCKS + idx] = 0;
+                            }
                         }
+
                         if (i != 0) {
                             if (blocks[idx - wid * wid] != 0) {
                                 panels[0 * MAX_BLOCKS + idx] = 0;
                             }
+                        } else if (chunkMap.getPtr(pos.sub(iVec3.init(0, 0, wid)))) |chunkZP| {
+                            if (chunkZP.blocks[wid * wid * (wid - 1) + wid * j + k] != 0) {
+                                panels[0 * MAX_BLOCKS + idx] = 0;
+                            }
                         }
+
                         if (j < CHUNK_SIZE - 1) {
                             if (blocks[idx + wid] != 0) {
                                 panels[5 * MAX_BLOCKS + idx] = 0;
@@ -222,7 +263,9 @@ pub fn Chunk(CHUNK_SIZE: u32) type {
                 }
             }
         }
-        pub fn update() void {}
+        pub fn update(self: *Self) void {
+            self.updateSample3D();
+        }
         pub fn draw(self: Self, VAOs: [6]c_uint, shader: _shader.ShaderProgram()) void {
             for (0..6) |i| {
                 shader.setVec3(normals[i], "normal");
